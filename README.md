@@ -20,6 +20,16 @@ Map a music scene. **wavelength** crawls DJ lineups (past and upcoming) into a g
 
 San Francisco: Claudio PRC, DVS1, Lindsey Herbert, Fadi Mohem, Isabel Soto
 
+## Architecture
+
+The engine is source-agnostic. Every data source is a plugin behind one async interface (`wavelength/sources/base.py`): a `name` and an async generator `events(client)` that yields `Event`s. The engine runs them all concurrently with one shared HTTP client.
+
+This repo ships only the interface and a **demo source with fictional data**. Site-specific adapters aren't published: they're loaded at runtime from your own package via `WAVELENGTH_SOURCES` (see `.env.example`).
+
+```sh
+.venv/bin/python -m wavelength        # runs the demo source by default
+```
+
 ## Development
 
 ```sh
