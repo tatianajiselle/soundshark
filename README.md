@@ -42,3 +42,7 @@ pytest
 ## Data & ethics
 
 SoundShark only uses data sources whose terms allow it, respects rate limits and robots.txt, and stores audio *features*, never audio.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
