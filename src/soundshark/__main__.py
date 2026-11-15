@@ -1,6 +1,6 @@
 """Run every configured source at once and summarize what came back.
 
-    .venv/bin/python -m wavelength
+    .venv/bin/python -m soundshark
 """
 
 import asyncio
@@ -9,9 +9,9 @@ import time
 import httpx
 from dotenv import load_dotenv
 
-from wavelength.models import Event
-from wavelength.sources.base import Source
-from wavelength.sources.loader import load_sources
+from soundshark.models import Event
+from soundshark.sources.base import Source
+from soundshark.sources.loader import load_sources
 
 
 async def collect(source: Source, client: httpx.AsyncClient) -> list[Event]:

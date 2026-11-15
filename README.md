@@ -1,6 +1,6 @@
-# wavelength 〰️
+# SoundShark 🦈
 
-Map a music scene. **wavelength** crawls DJ lineups (past and upcoming) into a graph of who plays with whom, then listens to the music to find who's really on the same wavelength.
+Map a music scene. **SoundShark** crawls DJ lineups (past and upcoming) into a graph of who plays with whom, then listens to the music to find who really sounds alike.
 
 > Work in progress, built in the open as a way to learn async Python properly.
 
@@ -22,12 +22,12 @@ San Francisco: Claudio PRC, DVS1, Lindsey Herbert, Fadi Mohem, Isabel Soto
 
 ## Architecture
 
-The engine is source-agnostic. Every data source is a plugin behind one async interface (`wavelength/sources/base.py`): a `name` and an async generator `events(client)` that yields `Event`s. The engine runs them all concurrently with one shared HTTP client.
+The engine is source-agnostic. Every data source is a plugin behind one async interface (`soundshark/sources/base.py`): a `name` and an async generator `events(client)` that yields `Event`s. The engine runs them all concurrently with one shared HTTP client.
 
-This repo ships only the interface and a **demo source with fictional data**. Site-specific adapters aren't published: they're loaded at runtime from your own package via `WAVELENGTH_SOURCES` (see `.env.example`).
+This repo ships only the interface and a **demo source with fictional data**. Site-specific adapters aren't published: they're loaded at runtime from your own package via `SOUNDSHARK_SOURCES` (see `.env.example`).
 
 ```sh
-.venv/bin/python -m wavelength        # runs the demo source by default
+.venv/bin/python -m soundshark        # runs the demo source by default
 ```
 
 ## Development
@@ -41,4 +41,4 @@ pytest
 
 ## Data & ethics
 
-wavelength only uses data sources whose terms allow it, respects rate limits and robots.txt, and stores audio *features*, never audio.
+SoundShark only uses data sources whose terms allow it, respects rate limits and robots.txt, and stores audio *features*, never audio.

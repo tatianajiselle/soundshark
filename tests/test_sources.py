@@ -1,9 +1,9 @@
 import httpx
 import pytest
 
-from wavelength.sources.base import Source
-from wavelength.sources.demo import DemoSource
-from wavelength.sources.loader import load_source, load_sources
+from soundshark.sources.base import Source
+from soundshark.sources.demo import DemoSource
+from soundshark.sources.loader import load_source, load_sources
 
 
 async def test_demo_source_yields_events():
@@ -19,12 +19,12 @@ def test_demo_implements_interface():
 
 
 def test_loader_defaults_to_demo(monkeypatch):
-    monkeypatch.delenv("WAVELENGTH_SOURCES", raising=False)
+    monkeypatch.delenv("SOUNDSHARK_SOURCES", raising=False)
     assert [s.name for s in load_sources()] == ["demo"]
 
 
 def test_loader_reads_env(monkeypatch):
-    monkeypatch.setenv("WAVELENGTH_SOURCES", "wavelength.sources.demo:DemoSource, wavelength.sources.demo:DemoSource")
+    monkeypatch.setenv("SOUNDSHARK_SOURCES", "soundshark.sources.demo:DemoSource, soundshark.sources.demo:DemoSource")
     assert len(load_sources()) == 2
 
 
@@ -36,4 +36,4 @@ def test_loader_rejects_bad_specs(spec):
 
 def test_loader_rejects_non_sources():
     with pytest.raises(TypeError):
-        load_source("wavelength.models:Event")
+        load_source("soundshark.models:Event")

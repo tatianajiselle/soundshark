@@ -1,4 +1,4 @@
-"""A demo source with made-up events, so anyone can run wavelength without real data.
+"""A demo source with made-up events, so anyone can run SoundShark without real data.
 
 Every artist, venue and event here is fictional.
 """
@@ -9,7 +9,7 @@ from datetime import datetime
 
 import httpx
 
-from wavelength.models import Event
+from soundshark.models import Event
 
 _SAMPLE = [
     ("d1", "2026-03-06 23:00", "Kelvin Hall", "Lakeport", {

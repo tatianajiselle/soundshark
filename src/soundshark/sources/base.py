@@ -9,7 +9,7 @@ from typing import Protocol, runtime_checkable
 
 import httpx
 
-from wavelength.models import Event
+from soundshark.models import Event
 
 
 @runtime_checkable

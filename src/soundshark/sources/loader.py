@@ -1,15 +1,15 @@
 """Load sources named in config, so the public repo never imports a real source.
 
-WAVELENGTH_SOURCES is a comma-separated list of "module.path:ClassName" specs.
+SOUNDSHARK_SOURCES is a comma-separated list of "module.path:ClassName" specs.
 It defaults to the demo source. Put real specs in your gitignored .env.
 """
 
 import importlib
 import os
 
-from wavelength.sources.base import Source
+from soundshark.sources.base import Source
 
-DEFAULT_SOURCES = "wavelength.sources.demo:DemoSource"
+DEFAULT_SOURCES = "soundshark.sources.demo:DemoSource"
 
 
 def load_source(spec: str) -> Source:
@@ -24,5 +24,5 @@ def load_source(spec: str) -> Source:
 
 
 def load_sources(specs: str | None = None) -> list[Source]:
-    specs = specs if specs is not None else os.environ.get("WAVELENGTH_SOURCES", DEFAULT_SOURCES)
+    specs = specs if specs is not None else os.environ.get("SOUNDSHARK_SOURCES", DEFAULT_SOURCES)
     return [load_source(s) for s in specs.split(",") if s.strip()]
