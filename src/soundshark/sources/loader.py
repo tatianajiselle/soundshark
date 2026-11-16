@@ -1,9 +1,3 @@
-"""Load sources named in config, so the public repo never imports a real source.
-
-SOUNDSHARK_SOURCES is a comma-separated list of "module.path:ClassName" specs.
-It defaults to the demo source. Put real specs in your gitignored .env.
-"""
-
 import importlib
 import os
 

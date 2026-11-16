@@ -1,0 +1,43 @@
+# SoundShark design notes
+
+## Intent
+
+SoundShark maps a music scene by **who plays with whom**. Club lineups are a quiet record of taste: DJs who share a bill, a room or a b2b set usually share a sound, a crew or a city. Collect enough of those nights and a picture appears, of scenes, of bridges between them, and of the DJs closest to any DJ you already love.
+
+SoundShark crawls public lineup history into that graph and answers two questions:
+
+- **Who is related to this DJ?**
+- **How are these two DJs connected?**
+
+Later (v2) it listens too, comparing what tracks sound like, not just who played them.
+
+It is built in the open, slowly and on purpose, as a way to learn async Python properly: concurrency, politeness, failure handling, and the plumbing around a real crawler. These notes record the choices made along the way and why, so they can be questioned later instead of rediscovered.
+
+## How to read the decisions
+
+Each decision is short and has the same parts:
+
+- **Status**: accepted, proposed or replaced
+- **Context**: the problem and what pushed on it
+- **Decision**: what we chose
+- **Consequences**: what gets easier, what gets harder
+- **Alternatives considered**: what we didn't choose, and why
+
+A decision is never edited to say something new. If it changes, a new decision replaces it and the old one is marked replaced.
+
+## Decisions
+
+| # | Decision | Status |
+|---|---|---|
+| [0001](decisions/0001-open-engine-private-adapters.md) | Open engine, private site adapters | Accepted |
+| [0002](decisions/0002-engine-fetches-sources-parse.md) | The engine fetches; sources only parse | Accepted |
+| [0003](decisions/0003-polite-crawling.md) | Crawl politely by default | Accepted |
+| [0004](decisions/0004-fetch-once-parse-many.md) | Fetch once, parse many times | Accepted |
+| [0005](decisions/0005-idempotent-incremental-crawls.md) | Idempotent, incremental crawls | Accepted |
+| [0006](decisions/0006-one-postgres-database.md) | One managed Postgres database | Accepted |
+| [0007](decisions/0007-four-layer-schema.md) | A four-layer schema | Accepted |
+| [0008](decisions/0008-artist-identity.md) | Artist names: exact matches merge, fuzzy matches wait for a human | Accepted |
+| [0009](decisions/0009-graph-in-tables.md) | The graph is tables, computed nightly | Accepted |
+| [0010](decisions/0010-read-only-explorer.md) | A public, read-only explorer with no accounts | Accepted |
+| [0011](decisions/0011-one-small-server.md) | Start on one small server | Accepted |
+| [0012](decisions/0012-data-ethics.md) | Data ethics: show connections, never copies | Accepted |
