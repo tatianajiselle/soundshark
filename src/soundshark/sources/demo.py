@@ -12,21 +12,45 @@ import httpx
 from soundshark.models import Event
 
 _SAMPLE = [
-    ("d1", "2026-03-06 23:00", "Kelvin Hall", "Lakeport", {
-        "Main": ["Ora Vance", "Mirek Sol", "Tamsin Rook"],
-        "Annex": ["Juno Hale", "Petra Ilse"],
-    }),
-    ("d2", "2026-03-13 23:00", "Kelvin Hall", "Lakeport", {
-        "Main": ["Mirek Sol", "Dax Ferro"],
-        "Annex": ["Ora Vance b2b Juno Hale"],
-    }),
-    ("d3", "2026-04-02 22:00", "The Cistern", "Northvale", {
-        "Main": ["Tamsin Rook", "Dax Ferro", "Selene Mau"],
-    }),
-    ("d4", "2026-04-18 22:00", "The Cistern", "Northvale", {
-        "Main": ["Petra Ilse", "Selene Mau"],
-        "Basement": ["Quill Arden"],
-    }),
+    (
+        "d1",
+        "2026-03-06 23:00",
+        "Kelvin Hall",
+        "Lakeport",
+        {
+            "Main": ["Ora Vance", "Mirek Sol", "Tamsin Rook"],
+            "Annex": ["Juno Hale", "Petra Ilse"],
+        },
+    ),
+    (
+        "d2",
+        "2026-03-13 23:00",
+        "Kelvin Hall",
+        "Lakeport",
+        {
+            "Main": ["Mirek Sol", "Dax Ferro"],
+            "Annex": ["Ora Vance b2b Juno Hale"],
+        },
+    ),
+    (
+        "d3",
+        "2026-04-02 22:00",
+        "The Cistern",
+        "Northvale",
+        {
+            "Main": ["Tamsin Rook", "Dax Ferro", "Selene Mau"],
+        },
+    ),
+    (
+        "d4",
+        "2026-04-18 22:00",
+        "The Cistern",
+        "Northvale",
+        {
+            "Main": ["Petra Ilse", "Selene Mau"],
+            "Basement": ["Quill Arden"],
+        },
+    ),
 ]
 
 

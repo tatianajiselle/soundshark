@@ -10,12 +10,21 @@ dependencies = [
     "python-dotenv>=1.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "respx>=0.21",
+    "ruff>=0.8",
+    "pyright[nodejs]>=1.1.390",
 ]
+# Extra tools for the (unpublished) practice lessons.
+lessons = [
+    "beautifulsoup4>=4.12",
+]
+
+[tool.uv]
+default-groups = ["dev", "lessons"]
 
 [build-system]
 requires = ["hatchling"]
@@ -28,3 +37,19 @@ packages = ["src/soundshark"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/W/F: errors and pyflakes, I: import order, UP: modern syntax, B: likely bugs,
+# ASYNC: blocking calls inside async code (time.sleep, sync HTTP...), SIM: simplifications
+select = ["E", "W", "F", "I", "UP", "B", "ASYNC", "SIM"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+# A coroutine that is called but never awaited is an error, not a warning.
+reportUnusedCoroutine = "error"
