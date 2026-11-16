@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -97,3 +98,42 @@ async def test_saved_runs_can_be_read_back(tmp_path):
     await store.save_run(CrawlRun("other"))
     assert [r async for r in store.iter_runs("demo")] == [run]
     assert [r async for r in store.iter_runs("never-crawled")] == []
+
+
+async def test_refetching_unchanged_content_keeps_one_version_with_the_new_time(tmp_path):
+    store = FilePageStore(tmp_path)
+    await store.save_page("demo", make_page(body=b"same"))
+    later = make_page(body=b"same", at=T0 + timedelta(days=1))
+    await store.save_page("demo", later)
+    versions = [v async for v in store.iter_page_versions("demo")]
+    assert len(versions) == 1
+    assert versions[0].page.fetched_at == later.fetched_at
+    assert versions[0].is_latest
+
+
+async def test_changed_content_keeps_every_version_oldest_first(tmp_path):
+    store = FilePageStore(tmp_path)
+    await store.save_page("demo", make_page(body=b"v1"))
+    await store.save_page("demo", make_page(body=b"v2", at=T0 + timedelta(days=1)))
+    await store.save_page("demo", make_page(body=b"v1", at=T0 + timedelta(days=2)))
+    versions = [v async for v in store.iter_page_versions("demo")]
+    assert [v.page.body for v in versions] == [b"v1", b"v2", b"v1"]
+    assert [v.is_latest for v in versions] == [False, False, True]
+    assert all((tmp_path / v.storage_path).is_file() for v in versions)
+    latest = await store.load_page("demo", "https://x.test/a")
+    assert latest is not None and latest.body == b"v1"
+    assert [p.body async for p in store.iter_pages("demo")] == [b"v1"]
+
+
+async def test_crawl_run_id_is_kept_with_the_page(tmp_path):
+    store = FilePageStore(tmp_path)
+    await store.save_page("demo", replace(make_page(), crawl_run_id="20261116T000000Z-abc123"))
+    stored = await store.load_page("demo", "https://x.test/a")
+    assert stored is not None and stored.crawl_run_id == "20261116T000000Z-abc123"
+
+
+async def test_run_errors_are_kept(tmp_path):
+    store = FilePageStore(tmp_path)
+    await store.save_run(CrawlRun("demo", error="CancelledError: "))
+    [run] = [r async for r in store.iter_runs("demo")]
+    assert run.error == "CancelledError: "

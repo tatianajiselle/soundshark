@@ -10,15 +10,21 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+SEARCH_EXTENSIONS = ("unaccent", "pg_trgm")
+
+
 def upgrade() -> None:
+    for extension in SEARCH_EXTENSIONS:
+        op.execute(f"create extension if not exists {extension}")
     op.create_table(
         "artists",
         sa.Column("id", sa.BigInteger(), sa.Identity(always=False), nullable=False),
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("slug", sa.Text(), nullable=False),
-        sa.Column("kind", sa.Text(), nullable=True),
+        sa.Column("kind", sa.Text(), server_default=sa.text("'unknown'"), nullable=False),
         sa.Column("mbid", sa.Uuid(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.CheckConstraint("kind in ('person', 'group', 'unknown')", name=op.f("ck_artists_kind_is_known")),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_artists")),
         sa.UniqueConstraint("slug", name=op.f("uq_artists_slug")),
     )
@@ -33,22 +39,10 @@ def upgrade() -> None:
         sa.Column("pages_failed", sa.Integer(), nullable=False),
         sa.Column("pages_blocked_by_robots", sa.Integer(), nullable=False),
         sa.Column("events_found", sa.Integer(), nullable=False),
+        sa.Column("error", sa.Text(), nullable=True),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_crawl_runs")),
     )
     op.create_index(op.f("ix_crawl_runs_source_name"), "crawl_runs", ["source_name"], unique=False)
-    op.create_table(
-        "raw_pages",
-        sa.Column("id", sa.BigInteger(), sa.Identity(always=False), nullable=False),
-        sa.Column("source_name", sa.Text(), nullable=False),
-        sa.Column("url", sa.Text(), nullable=False),
-        sa.Column("status", sa.Integer(), nullable=False),
-        sa.Column("content_type", sa.Text(), nullable=True),
-        sa.Column("content_sha256", sa.String(length=64), nullable=False),
-        sa.Column("byte_size", sa.Integer(), nullable=False),
-        sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_raw_pages")),
-        sa.UniqueConstraint("source_name", "url", name=op.f("uq_raw_pages_source_name_url")),
-    )
     op.create_table(
         "venues",
         sa.Column("id", sa.BigInteger(), sa.Identity(always=False), nullable=False),
@@ -77,7 +71,40 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("alias_key", name=op.f("pk_artist_aliases")),
     )
+    op.create_index(
+        "ix_artist_aliases_alias_key_trigram",
+        "artist_aliases",
+        ["alias_key"],
+        unique=False,
+        postgresql_using="gin",
+        postgresql_ops={"alias_key": "gin_trgm_ops"},
+    )
     op.create_index(op.f("ix_artist_aliases_artist_id"), "artist_aliases", ["artist_id"], unique=False)
+    op.create_table(
+        "raw_pages",
+        sa.Column("id", sa.BigInteger(), sa.Identity(always=False), nullable=False),
+        sa.Column("crawl_run_id", sa.Text(), nullable=True),
+        sa.Column("source_name", sa.Text(), nullable=False),
+        sa.Column("url", sa.Text(), nullable=False),
+        sa.Column("status", sa.Integer(), nullable=False),
+        sa.Column("content_type", sa.Text(), nullable=True),
+        sa.Column("content_sha256", sa.String(length=64), nullable=False),
+        sa.Column("byte_size", sa.Integer(), nullable=False),
+        sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("storage_path", sa.Text(), nullable=False),
+        sa.Column("is_latest", sa.Boolean(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["crawl_run_id"],
+            ["crawl_runs.id"],
+            name=op.f("fk_raw_pages_crawl_run_id_crawl_runs"),
+            ondelete="SET NULL",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_raw_pages")),
+        sa.UniqueConstraint(
+            "source_name", "url", "content_sha256", name=op.f("uq_raw_pages_source_name_url_content_sha256")
+        ),
+    )
+    op.create_index(op.f("ix_raw_pages_crawl_run_id"), "raw_pages", ["crawl_run_id"], unique=False)
     op.create_table(
         "events",
         sa.Column("id", sa.BigInteger(), sa.Identity(always=False), nullable=False),
@@ -150,10 +177,19 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_events_venue_id"), table_name="events")
     op.drop_index(op.f("ix_events_starts_at"), table_name="events")
     op.drop_table("events")
+    op.drop_index(op.f("ix_raw_pages_crawl_run_id"), table_name="raw_pages")
+    op.drop_table("raw_pages")
     op.drop_index(op.f("ix_artist_aliases_artist_id"), table_name="artist_aliases")
+    op.drop_index(
+        "ix_artist_aliases_alias_key_trigram",
+        table_name="artist_aliases",
+        postgresql_using="gin",
+        postgresql_ops={"alias_key": "gin_trgm_ops"},
+    )
     op.drop_table("artist_aliases")
     op.drop_table("venues")
-    op.drop_table("raw_pages")
     op.drop_index(op.f("ix_crawl_runs_source_name"), table_name="crawl_runs")
     op.drop_table("crawl_runs")
     op.drop_table("artists")
+    for extension in SEARCH_EXTENSIONS:
+        op.execute(f"drop extension if exists {extension}")

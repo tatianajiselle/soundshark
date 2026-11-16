@@ -34,3 +34,33 @@ def test_event_artists_are_unique_across_rooms_in_order():
 
 def test_each_crawl_run_gets_its_own_id():
     assert CrawlRun("demo").id != CrawlRun("demo").id
+
+
+def test_page_content_hash_identifies_the_body():
+    page = Page(url="https://x.test/", status=200, body=b"abc", fetched_at=datetime.now(UTC))
+    assert page.content_sha256 == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+
+
+@pytest.mark.parametrize("bad_code", ["de", "DEU", "D1"])
+def test_event_venue_country_must_be_two_capital_letters(bad_code):
+    with pytest.raises(ValueError):
+        Event(
+            source="x",
+            source_id="1",
+            starts_at=datetime.now(UTC),
+            venue="V",
+            city="C",
+            venue_country_code=bad_code,
+        )
+
+
+def test_event_venue_timezone_must_exist():
+    with pytest.raises(ValueError):
+        Event(
+            source="x",
+            source_id="1",
+            starts_at=datetime.now(UTC),
+            venue="V",
+            city="C",
+            venue_timezone="Mars/Base",
+        )

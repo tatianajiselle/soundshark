@@ -24,6 +24,7 @@ class CrawlRun:
     pages_failed: int = 0
     pages_blocked_by_robots: int = 0
     events_found: int = 0
+    error: str | None = None
 
 
 @dataclass(slots=True)

@@ -1,5 +1,6 @@
 import asyncio
 import time
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import httpx
@@ -28,10 +29,20 @@ async def crawl(
 
     run_log.info("crawl.started", seed_urls=list(source.seed_urls), max_pages=max_pages, max_depth=max_depth)
     started = time.perf_counter()
-    for url in source.seed_urls:
-        job.enqueue_if_new(url, depth=0)
-    await job.run_workers_until_queue_is_empty()
-    run.finished_at = datetime.now(UTC)
+    if page_store is not None:
+        await page_store.save_run(run)
+    try:
+        for url in source.seed_urls:
+            job.enqueue_if_new(url, depth=0)
+        await job.run_workers_until_queue_is_empty()
+    except BaseException as error:
+        run.error = f"{type(error).__name__}: {error}"
+        run_log.error("crawl.crashed", error=run.error)
+        raise
+    finally:
+        run.finished_at = datetime.now(UTC)
+        if page_store is not None:
+            await page_store.save_run(run)
 
     run_log.info(
         "crawl.finished",
@@ -42,8 +53,6 @@ async def crawl(
         events_found=run.events_found,
         duration_seconds=round(time.perf_counter() - started, 2),
     )
-    if page_store is not None:
-        await page_store.save_run(run)
     return CrawlResult(events=job.events, visited_urls=job.visited_urls, run=run)
 
 
@@ -129,10 +138,11 @@ class _CrawlJob:
             self.run.pages_blocked_by_robots += 1
             self.log.info("page.blocked_by_robots", url=url, depth=depth)
             return None
-        page = await self.http.fetch_page(url)
-        if page is None:
+        fetched = await self.http.fetch_page(url)
+        if fetched is None:
             self.run.pages_failed += 1
             return None
+        page = replace(fetched, crawl_run_id=self.run.id)
         self.run.pages_fetched += 1
         if self.page_store is not None:
             await self.page_store.save_page(self.source.name, page)

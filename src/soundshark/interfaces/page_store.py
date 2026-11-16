@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 from typing import Protocol, runtime_checkable
 
-from soundshark.models import CrawlRun, Page
+from soundshark.models import CrawlRun, Page, StoredPageVersion
 
 
 @runtime_checkable
@@ -11,6 +11,8 @@ class PageStore(Protocol):
     async def save_page(self, source_name: str, page: Page) -> None: ...
 
     def iter_pages(self, source_name: str) -> AsyncIterator[Page]: ...
+
+    def iter_page_versions(self, source_name: str) -> AsyncIterator[StoredPageVersion]: ...
 
     async def save_run(self, run: CrawlRun) -> None: ...
 

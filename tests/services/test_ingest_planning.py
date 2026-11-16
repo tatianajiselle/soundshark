@@ -1,12 +1,8 @@
 from datetime import UTC, datetime, timedelta
 
 from soundshark.models import Event, Page
-from soundshark.services.ingest import (
-    PageWithEvents,
-    choose_new_artist_slugs,
-    latest_copy_of_each_event,
-    plan_lineup_slots,
-)
+from soundshark.services.credits import choose_new_artist_slugs
+from soundshark.services.ingest import PageWithEvents, latest_copy_of_each_event, plan_lineup_slots
 from soundshark.utils.slugs import slugify
 
 T0 = datetime(2026, 3, 7, 23, 0, tzinfo=UTC)
@@ -27,20 +23,17 @@ def test_slots_keep_room_position_and_raw_text():
         ("Main", 1, "Mirek Sol (live)"),
         ("Annex", 0, "Juno Hale"),
     ]
-    assert slots[1].act_names == ["Mirek Sol"]
     assert slots[1].tags == ["live"]
 
 
-def test_b2b_slot_credits_every_act():
+def test_b2b_slot_is_marked_b2b():
     [slot] = plan_lineup_slots(make_event(Main=["Ora Vance b2b Juno Hale"]))
     assert slot.is_b2b
-    assert slot.act_names == ["Ora Vance", "Juno Hale"]
 
 
-def test_duo_with_ampersand_is_one_act():
+def test_duo_with_ampersand_is_not_b2b():
     [slot] = plan_lineup_slots(make_event(Main=["Ora Vance & Juno Hale"]))
     assert not slot.is_b2b
-    assert slot.act_names == ["Ora Vance & Juno Hale"]
 
 
 def test_event_seen_on_two_pages_keeps_the_newest_copy():

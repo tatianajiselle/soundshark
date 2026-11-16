@@ -10,6 +10,7 @@ from soundshark.db import create_database_engine, database_url_from_env
 from soundshark.interfaces import PageStore, Source
 from soundshark.models import CrawlResult
 from soundshark.services import crawl
+from soundshark.services.credits import CreditSummary, build_credits
 from soundshark.services.ingest import IngestSummary, ingest_stored_pages
 from soundshark.sources import load_configured_sources
 from soundshark.stores import FilePageStore
@@ -54,6 +55,14 @@ async def ingest_all_sources(store_dir: Path) -> None:
     print(f"done in {time.perf_counter() - started:.2f}s")
 
 
+async def identify_artists(rebuild: bool) -> None:
+    engine = create_database_engine(database_url_from_env())
+    try:
+        print_credit_summary(await build_credits(engine, rebuild=rebuild))
+    finally:
+        await engine.dispose()
+
+
 def print_crawl_summary(source_name: str, result: CrawlResult) -> None:
     artists = {artist for event in result.events for artist in event.artists}
     run = result.run
@@ -66,9 +75,18 @@ def print_crawl_summary(source_name: str, result: CrawlResult) -> None:
 
 def print_ingest_summary(source_name: str, summary: IngestSummary) -> None:
     print(
-        f"{source_name:12} {summary.pages_read} pages read  {summary.events_written} events  "
-        f"{summary.lineup_slots_written} lineup slots  {summary.artists_created} new artists  "
-        f"{summary.pages_unparseable} unparseable pages"
+        f"{source_name:12} {summary.page_versions_read} page versions  {summary.pages_parsed} parsed  "
+        f"{summary.events_written} events  {summary.events_with_new_lineups} with new lineups  "
+        f"{summary.lineup_slots_written} lineup slots written  {summary.pages_unparseable} unparseable"
+    )
+
+
+def print_credit_summary(summary: CreditSummary) -> None:
+    print(
+        f"{summary.lineup_slots_read} lineup slots credited  {summary.credits_written} credits  "
+        f"{summary.artists_created} new artists  "
+        f"{summary.automatic_aliases_removed} automatic aliases removed  "
+        f"{summary.artists_removed} artists removed"
     )
 
 
@@ -84,6 +102,10 @@ def parse_args() -> argparse.Namespace:
     crawl_command.add_argument("--max-pages", type=int, default=1000)
     crawl_command.add_argument("--max-depth", type=int, default=None)
     commands.add_parser("ingest", parents=[shared], help="parse stored pages into Postgres")
+    identify_command = commands.add_parser("identify", parents=[shared], help="match lineup slots to artists")
+    identify_command.add_argument(
+        "--rebuild", action="store_true", help="forget automatic matches first; manual aliases are kept"
+    )
     return parser.parse_args()
 
 
@@ -93,5 +115,7 @@ if __name__ == "__main__":
     configure_logging(verbose=args.verbose, json_output=args.log_json)
     if args.command == "crawl":
         asyncio.run(crawl_all_sources(args.store, args.max_pages, args.max_depth))
-    else:
+    elif args.command == "ingest":
         asyncio.run(ingest_all_sources(args.store))
+    else:
+        asyncio.run(identify_artists(args.rebuild))

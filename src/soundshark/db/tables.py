@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Identity,
+    Index,
     MetaData,
     String,
     Text,
@@ -50,13 +51,17 @@ class CrawlRunRow(TableBase):
     pages_failed: Mapped[int]
     pages_blocked_by_robots: Mapped[int]
     events_found: Mapped[int]
+    error: Mapped[str | None]
 
 
 class RawPageRow(TableBase):
     __tablename__ = "raw_pages"
-    __table_args__ = (UniqueConstraint("source_name", "url"),)
+    __table_args__ = (UniqueConstraint("source_name", "url", "content_sha256"),)
 
     id: Mapped[int] = _id_column()
+    crawl_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("crawl_runs.id", ondelete="SET NULL"), index=True
+    )
     source_name: Mapped[str]
     url: Mapped[str]
     status: Mapped[int]
@@ -64,6 +69,8 @@ class RawPageRow(TableBase):
     content_sha256: Mapped[str] = mapped_column(String(64))
     byte_size: Mapped[int]
     fetched_at: Mapped[datetime]
+    storage_path: Mapped[str]
+    is_latest: Mapped[bool]
 
 
 class VenueRow(TableBase):
@@ -110,18 +117,27 @@ class LineupSlotRow(TableBase):
 
 class ArtistRow(TableBase):
     __tablename__ = "artists"
+    __table_args__ = (CheckConstraint("kind in ('person', 'group', 'unknown')", name="kind_is_known"),)
 
     id: Mapped[int] = _id_column()
     name: Mapped[str]
     slug: Mapped[str] = mapped_column(unique=True)
-    kind: Mapped[str | None]
+    kind: Mapped[str] = mapped_column(server_default=text("'unknown'"))
     mbid: Mapped[UUID | None]
     created_at: Mapped[datetime] = _now_by_default()
 
 
 class ArtistAliasRow(TableBase):
     __tablename__ = "artist_aliases"
-    __table_args__ = (CheckConstraint("origin in ('auto', 'manual')", name="origin_is_auto_or_manual"),)
+    __table_args__ = (
+        CheckConstraint("origin in ('auto', 'manual')", name="origin_is_auto_or_manual"),
+        Index(
+            "ix_artist_aliases_alias_key_trigram",
+            "alias_key",
+            postgresql_using="gin",
+            postgresql_ops={"alias_key": "gin_trgm_ops"},
+        ),
+    )
 
     alias_key: Mapped[str] = mapped_column(primary_key=True)
     artist_id: Mapped[int] = mapped_column(ForeignKey("artists.id", ondelete="CASCADE"), index=True)

@@ -132,3 +132,39 @@ def test_concurrent_crawl_visits_exactly_what_sequential_bfs_does(links_by_page,
     source = FakeSource(seed_pages=(seed,), max_concurrent_requests_per_host=concurrency)
     result = asyncio.run(crawl_fake_site(FakeSite(links_by_page), source, max_depth=max_depth))
     assert result.visited_urls == {fake_url(page) for page in sequential_bfs(links_by_page, seed, max_depth)}
+
+
+async def test_fetched_pages_carry_the_crawl_run_id():
+    store = InMemoryPageStore()
+    result = await crawl_fake_site(FakeSite(EXAMPLE_SITE), page_store=store)
+    assert {page.crawl_run_id async for page in store.iter_pages("fake")} == {result.run.id}
+
+
+async def test_the_run_is_saved_when_it_starts_and_when_it_ends():
+    store = InMemoryPageStore()
+    started_runs = []
+    original_save_run = store.save_run
+
+    async def remember_save(run):
+        started_runs.append(run.finished_at)
+        await original_save_run(run)
+
+    store.save_run = remember_save
+    await crawl_fake_site(FakeSite(EXAMPLE_SITE), page_store=store)
+    assert started_runs[0] is None
+    assert started_runs[-1] is not None
+
+
+async def test_a_cancelled_crawl_records_why_it_stopped():
+    store = InMemoryPageStore()
+    site = FakeSite({"A": []})
+    site.response_delay_seconds = 5
+    async with httpx.AsyncClient(transport=httpx.MockTransport(site)) as http_client:
+        crawl_task = asyncio.create_task(crawl(FakeSource(), http_client, page_store=store))
+        await asyncio.sleep(0.05)
+        crawl_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await crawl_task
+    [run] = store.saved_runs
+    assert run.error is not None and run.error.startswith("CancelledError")
+    assert run.finished_at is not None

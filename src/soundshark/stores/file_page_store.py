@@ -8,14 +8,15 @@ import os
 import re
 import tempfile
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from soundshark.models import CrawlRun, Page
+from soundshark.models import CrawlRun, Page, StoredPageVersion
 
 _SAFE_PATH_SEGMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 _PAGE_FILE_SUFFIX = ".json.gz"
+_HASH_CHARS_IN_FILE_NAME = 16
 
 
 def _require_safe_path_segment(value: str, what_it_is: str) -> str:
@@ -36,6 +37,15 @@ def _write_file_atomically(path: Path, data: bytes) -> None:
         raise
 
 
+def _version_file_name(page: Page) -> str:
+    fetched = page.fetched_at.astimezone(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+    return f"{fetched}-{page.content_sha256[:_HASH_CHARS_IN_FILE_NAME]}{_PAGE_FILE_SUFFIX}"
+
+
+def _content_hash_prefix(version_file: Path) -> str:
+    return version_file.name.removesuffix(_PAGE_FILE_SUFFIX).rsplit("-", 1)[-1]
+
+
 def _page_to_gzipped_json(page: Page) -> bytes:
     record = {
         "url": page.url,
@@ -43,6 +53,7 @@ def _page_to_gzipped_json(page: Page) -> bytes:
         "content_type": page.content_type,
         "encoding": page.encoding,
         "fetched_at": page.fetched_at.isoformat(),
+        "crawl_run_id": page.crawl_run_id,
         "body": base64.b64encode(page.body).decode("ascii"),
     }
     return gzip.compress(json.dumps(record).encode(), mtime=0)
@@ -57,22 +68,41 @@ def _page_from_gzipped_json(data: bytes) -> Page:
         fetched_at=datetime.fromisoformat(record["fetched_at"]),
         content_type=record["content_type"],
         encoding=record["encoding"],
+        crawl_run_id=record.get("crawl_run_id"),
     )
 
 
-def _read_page_file(path: Path) -> Page | None:
-    try:
-        return _page_from_gzipped_json(path.read_bytes())
-    except FileNotFoundError:
-        return None
-
-
-def _page_files_in(directory: Path) -> list[Path]:
-    if not directory.is_dir():
+def _versions_oldest_first(url_directory: Path) -> list[Path]:
+    if not url_directory.is_dir():
         return []
     return sorted(
-        p for p in directory.iterdir() if p.name.endswith(_PAGE_FILE_SUFFIX) and not p.name.startswith(".")
+        p
+        for p in url_directory.iterdir()
+        if p.name.endswith(_PAGE_FILE_SUFFIX) and not p.name.startswith(".")
     )
+
+
+def _url_directories(source_directory: Path) -> list[Path]:
+    if not source_directory.is_dir():
+        return []
+    return sorted(p for p in source_directory.iterdir() if p.is_dir())
+
+
+def _read_latest_version(url_directory: Path) -> Page | None:
+    versions = _versions_oldest_first(url_directory)
+    return _page_from_gzipped_json(versions[-1].read_bytes()) if versions else None
+
+
+def _save_version(url_directory: Path, page: Page) -> None:
+    versions = _versions_oldest_first(url_directory)
+    new_version = url_directory / _version_file_name(page)
+    _write_file_atomically(new_version, _page_to_gzipped_json(page))
+    if not versions:
+        return
+    previous_latest = versions[-1]
+    same_content = _content_hash_prefix(previous_latest) == _content_hash_prefix(new_version)
+    if same_content and previous_latest != new_version:
+        previous_latest.unlink()
 
 
 def _run_from_json_file(path: Path) -> CrawlRun:
@@ -101,24 +131,34 @@ class FilePageStore:
     def __init__(self, root: Path | str) -> None:
         self.root = Path(root)
 
-    def _path_for_page(self, source_name: str, url: str) -> Path:
-        source_dir = _require_safe_path_segment(source_name, "source name")
-        url_hash = hashlib.sha256(url.encode()).hexdigest()
-        return self.root / "raw" / source_dir / f"{url_hash}{_PAGE_FILE_SUFFIX}"
+    def _source_directory(self, source_name: str) -> Path:
+        return self.root / "raw" / _require_safe_path_segment(source_name, "source name")
+
+    def _url_directory(self, source_name: str, url: str) -> Path:
+        return self._source_directory(source_name) / hashlib.sha256(url.encode()).hexdigest()
 
     async def load_page(self, source_name: str, url: str) -> Page | None:
-        return await asyncio.to_thread(_read_page_file, self._path_for_page(source_name, url))
+        return await asyncio.to_thread(_read_latest_version, self._url_directory(source_name, url))
 
     async def save_page(self, source_name: str, page: Page) -> None:
-        path = self._path_for_page(source_name, page.url)
-        await asyncio.to_thread(_write_file_atomically, path, _page_to_gzipped_json(page))
+        await asyncio.to_thread(_save_version, self._url_directory(source_name, page.url), page)
 
     async def iter_pages(self, source_name: str) -> AsyncIterator[Page]:
-        directory = self.root / "raw" / _require_safe_path_segment(source_name, "source name")
-        for path in await asyncio.to_thread(_page_files_in, directory):
-            page = await asyncio.to_thread(_read_page_file, path)
+        for url_directory in await asyncio.to_thread(_url_directories, self._source_directory(source_name)):
+            page = await asyncio.to_thread(_read_latest_version, url_directory)
             if page is not None:
                 yield page
+
+    async def iter_page_versions(self, source_name: str) -> AsyncIterator[StoredPageVersion]:
+        for url_directory in await asyncio.to_thread(_url_directories, self._source_directory(source_name)):
+            versions = await asyncio.to_thread(_versions_oldest_first, url_directory)
+            for position, version_file in enumerate(versions):
+                page = _page_from_gzipped_json(await asyncio.to_thread(version_file.read_bytes))
+                yield StoredPageVersion(
+                    page=page,
+                    storage_path=version_file.relative_to(self.root).as_posix(),
+                    is_latest=position == len(versions) - 1,
+                )
 
     async def save_run(self, run: CrawlRun) -> None:
         source_dir = _require_safe_path_segment(run.source_name, "source name")
