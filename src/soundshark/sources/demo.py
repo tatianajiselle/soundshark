@@ -1,9 +1,3 @@
-"""A demo source on a made-up website, so anyone can run SoundShark end to end without real data.
-
-The site is served in-process by an httpx.MockTransport, so the demo never touches the network.
-Every artist, venue and event here is fictional.
-"""
-
 import json
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo

@@ -1,8 +1,3 @@
-"""Crawl every configured source at once and summarize what came back.
-
-uv run python -m soundshark [--max-pages N] [--max-depth D]
-"""
-
 import argparse
 import asyncio
 import logging

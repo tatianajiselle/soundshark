@@ -50,8 +50,6 @@ class FakeSource:
 
 
 class Site:
-    """A fake website: graph of page name -> linked names, plus per-path response overrides."""
-
     def __init__(self, graph: dict[str, list[str]], robots: str | int = 404) -> None:
         self.graph = graph
         self.robots = robots

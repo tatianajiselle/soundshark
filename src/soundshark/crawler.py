@@ -1,12 +1,3 @@
-"""The crawl engine: a concurrent, polite breadth-first crawl of one source.
-
-Every URL is fetched at most once per crawl. Requests to a host are capped at
-Politeness.max_in_flight at a time and spaced by min_interval (or robots.txt Crawl-delay).
-robots.txt is always obeyed. Timeouts, connection errors, 429 and 5xx are retried with
-backoff, honouring Retry-After. A page that still fails is skipped; the crawl never
-crashes or hangs because of one page, and it returns on its own when the frontier is empty.
-"""
-
 import asyncio
 import logging
 import random
@@ -226,7 +217,6 @@ async def crawl(
     max_depth: int | None = None,
     max_pages: int = 1000,
 ) -> CrawlResult:
-    """Crawl a source from its seeds. Pages served from the store count toward max_pages too."""
     state = _Crawl(source, client, store, max_depth, max_pages, CrawlRun(source.name))
     for seed in source.seeds:
         state.schedule(seed, 0)

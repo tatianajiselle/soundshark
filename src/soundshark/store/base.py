@@ -1,8 +1,3 @@
-"""The raw store: every fetched page is kept so it can be parsed again without refetching.
-
-Implementations: files on disk now, Postgres later. The engine only sees this interface.
-"""
-
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
@@ -27,18 +22,10 @@ class CrawlRun:
 
 @runtime_checkable
 class RawStore(Protocol):
-    async def get(self, source: str, url: str) -> Page | None:
-        """The latest stored copy of this URL, or None if it was never stored."""
-        ...
+    async def get(self, source: str, url: str) -> Page | None: ...
 
-    async def put(self, source: str, page: Page) -> None:
-        """Store a page, replacing any earlier copy of the same URL."""
-        ...
+    async def put(self, source: str, page: Page) -> None: ...
 
-    def pages(self, source: str) -> AsyncIterator[Page]:
-        """Every stored page of a source (latest copy per URL), for re-parsing. An async generator."""
-        ...
+    def pages(self, source: str) -> AsyncIterator[Page]: ...
 
-    async def save_run(self, run: CrawlRun) -> None:
-        """Record a crawl run. Saving the same run id again overwrites it."""
-        ...
+    async def save_run(self, run: CrawlRun) -> None: ...
