@@ -1,9 +1,3 @@
-"""Who is who: matching keys for artist names, splitting lineup slots into acts, merge suggestions.
-
-Names that share a normalized key are the same artist. Names that only look alike become
-suggestions for a person to approve; nothing fuzzy is ever merged automatically.
-"""
-
 import re
 import string
 import unicodedata
@@ -30,7 +24,6 @@ def _fold(text: str) -> str:
 
 
 def normalize(name: str) -> str:
-    """The matching key for a name. Display names are never changed, only compared through this."""
     key = _fold(_fold(name).casefold()).translate(_QUOTES).translate(_DASHES)
     key = " ".join(key.split())
     return key.strip(_EDGES) or key
@@ -53,7 +46,6 @@ def _strip_tags(act: str) -> tuple[str, list[str]]:
 
 
 def split_slot(raw: str) -> Slot:
-    """One lineup entry into its acts. "A b2b B" and "A vs B" are two acts; "A & B" stays one act."""
     slot = Slot(raw=raw)
     for part in _SEPARATOR.split(" ".join(raw.split())):
         act, tags = _strip_tags(part.strip())
@@ -65,7 +57,6 @@ def split_slot(raw: str) -> Slot:
 
 
 def group_exact(names: Iterable[str]) -> dict[str, list[str]]:
-    """Names grouped by matching key, in first-seen order. Each group is one artist."""
     groups: dict[str, list[str]] = {}
     for name in names:
         group = groups.setdefault(normalize(name), [])
@@ -82,7 +73,6 @@ class Suggestion:
 
 
 def suggest_merges(names: Iterable[str], threshold: float = 90) -> list[Suggestion]:
-    """Pairs of different artists whose names look alike, best first. Never applied automatically."""
     groups = group_exact(names)
     keys = list(groups)
     suggestions = []
