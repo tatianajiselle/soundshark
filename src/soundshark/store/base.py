@@ -16,6 +16,7 @@ class CrawlRun:
     fetched: int = 0
     from_store: int = 0
     failed: int = 0
+    blocked: int = 0
     events: int = 0
 
 
