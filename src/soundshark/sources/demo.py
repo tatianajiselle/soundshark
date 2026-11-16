@@ -58,11 +58,11 @@ class DemoSource:
     name = "demo"
 
     def __init__(self, delay: float = 0.05) -> None:
-        self.delay = delay  # pretend each event takes a network round-trip
+        self.delay = delay
 
     async def events(self, client: httpx.AsyncClient) -> AsyncIterator[Event]:
         for source_id, starts, venue, city, rooms in _SAMPLE:
-            await asyncio.sleep(self.delay)  # a pause point, like a real request
+            await asyncio.sleep(self.delay)
             yield Event(
                 source=self.name,
                 source_id=source_id,

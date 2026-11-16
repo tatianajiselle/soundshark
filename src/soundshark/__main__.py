@@ -19,7 +19,7 @@ async def collect(source: Source, client: httpx.AsyncClient) -> list[Event]:
 
 
 async def main() -> None:
-    load_dotenv()  # reads .env if present (gitignored)
+    load_dotenv()
     sources = load_sources()
     start = time.perf_counter()
     async with httpx.AsyncClient(timeout=20) as client, asyncio.TaskGroup() as tg:

@@ -24,7 +24,7 @@ San Francisco: Claudio PRC, DVS1, Lindsey Herbert, Fadi Mohem, Isabel Soto
 
 The engine is source-agnostic. Every data source is a plugin behind one async interface (`soundshark/sources/base.py`): a `name` and an async generator `events(client)` that yields `Event`s. The engine runs them all concurrently with one shared HTTP client.
 
-This repo ships only the interface and a **demo source with fictional data**. Site-specific adapters aren't published: they're loaded at runtime from your own package via `SOUNDSHARK_SOURCES` (see `.env.example`).
+This repo ships only the interface and a **demo source with fictional data**. Site-specific adapters aren't published: they're loaded at runtime from your own package via `SOUNDSHARK_SOURCES`, a comma-separated list of `module.path:ClassName` (copy `.env.example` to `.env`; it defaults to the demo source).
 
 ```sh
 uv run python -m soundshark        # runs the demo source by default
