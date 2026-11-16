@@ -18,7 +18,7 @@
 
 - **The room matters most.** At a club with several rooms, the room is the best available stand-in for sound: one room might be mostly techno, another mostly house. A different-room night still counts a little, so a venue's rooms stay loosely connected for paths and scenes. With the first weights tried (3 / 2 / 1), an artist who often played the other room on the same nights could rank near the top of someone's list without ever sharing their room; with these weights, such artists drop out of the top 50.
 - Each night's weight **halves every 3 years** of age; upcoming nights count fully.
-- Each pair's total is divided by √(nights of A × nights of B), so artists who play constantly don't end up related to everyone.
+- Each pair's total is divided by √((nights of A + 5) × (nights of B + 5)), so artists who play constantly don't end up related to everyone. The **+5** keeps artists with only one or two nights from looking closer than regulars: without it, a single shared night with a one-off guest outweighs years of nights with a regular.
 
 **Scores.** For every artist, **personalized PageRank** on that weighted graph (damping 0.85): a random walk along shared bills that keeps jumping back to the artist. Artists the walk visits most are the most related, which includes artists who never shared a bill but share many of the same people.
 

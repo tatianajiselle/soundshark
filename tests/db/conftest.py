@@ -1,3 +1,4 @@
+import asyncio
 import os
 from pathlib import Path
 
@@ -29,8 +30,18 @@ def run_alembic(step: str, target: str) -> None:
     getattr(command, step)(config, target)
 
 
+async def _empty_the_test_database() -> None:
+    engine = create_database_engine(TEST_DATABASE_URL)
+    async with engine.begin() as connection:
+        await connection.execute(text("drop schema public cascade"))
+        await connection.execute(text("create schema public"))
+    await engine.dispose()
+
+
 @pytest.fixture(scope="session")
 def migrated_test_database():
+    asyncio.run(_empty_the_test_database())
+    run_alembic("upgrade", "head")
     run_alembic("downgrade", "base")
     run_alembic("upgrade", "head")
 

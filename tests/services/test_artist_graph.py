@@ -16,7 +16,7 @@ from soundshark.services.artist_graph import (
 )
 
 NOW = datetime(2026, 11, 16, tzinfo=UTC)
-NO_DECAY = GraphScoring(recency_half_life_years=1e9)
+NO_DECAY = GraphScoring(recency_half_life_years=1e9, night_count_padding=0)
 
 
 def credit(artist: int, event: int, room: str = "Main", slot: int | None = None, years_ago: float = 0):
@@ -60,6 +60,21 @@ def test_busy_artists_are_divided_by_how_often_they_play():
     credits = [credit(1, 10), credit(2, 10)] + [credit(1, event) for event in range(11, 14)]
     [edge] = build_edges(credits, NO_DECAY, NOW)
     assert edge.weight == pytest.approx(3.0 / math.sqrt(4 * 1))
+
+
+def test_padding_keeps_one_night_guests_from_outranking_regulars():
+    busy_artist = [credit(1, event) for event in range(20)]
+    regular = [credit(2, event) for event in range(5)] + [credit(2, event) for event in range(100, 130)]
+    one_night_guest = [credit(3, 0)]
+    credits = busy_artist + regular + one_night_guest
+
+    def ranking(padding: float) -> list[int]:
+        scoring = GraphScoring(recency_half_life_years=1e9, night_count_padding=padding)
+        related = top_related_by_pagerank(build_edges(credits, scoring, NOW), scoring)
+        return [other for other, _ in related[1]]
+
+    assert ranking(padding=0) == [3, 2]
+    assert ranking(padding=5) == [2, 3]
 
 
 def test_old_nights_count_half_after_the_half_life():

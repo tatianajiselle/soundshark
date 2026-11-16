@@ -81,7 +81,9 @@ def build_edges(credits: Iterable[CreditOnBill], scoring: GraphScoring, now: dat
                 edge.last_together = starts_at
 
     for edge in edges.values():
-        edge.weight /= math.sqrt(nights_played[edge.a_id] * nights_played[edge.b_id])
+        padded_a = nights_played[edge.a_id] + scoring.night_count_padding
+        padded_b = nights_played[edge.b_id] + scoring.night_count_padding
+        edge.weight /= math.sqrt(padded_a * padded_b)
     return sorted(edges.values(), key=lambda e: (e.a_id, e.b_id))
 
 
