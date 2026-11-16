@@ -1,6 +1,6 @@
 # 0009. The graph is tables, computed nightly
 
-**Status:** Accepted
+**Status:** Accepted, amended by [0018](0018-relatedness-scoring.md) (top 50, scored with scipy)
 
 ## Context
 

@@ -37,7 +37,7 @@ A decision is never edited to say something new. If it changes, a new decision r
 | [0006](decisions/0006-one-postgres-database.md) | One managed Postgres database | Accepted |
 | [0007](decisions/0007-four-layer-schema.md) | A four-layer schema | Accepted |
 | [0008](decisions/0008-artist-identity.md) | Artist names: exact matches merge, fuzzy matches wait for a human | Accepted |
-| [0009](decisions/0009-graph-in-tables.md) | The graph is tables, computed nightly | Accepted |
+| [0009](decisions/0009-graph-in-tables.md) | The graph is tables, computed nightly | Amended by 0018 |
 | [0010](decisions/0010-read-only-explorer.md) | A public, read-only explorer with no accounts | Accepted |
 | [0011](decisions/0011-one-small-server.md) | Start on one small server | Accepted |
 | [0012](decisions/0012-data-ethics.md) | Data ethics: show connections, never copies | Accepted |
@@ -46,10 +46,12 @@ A decision is never edited to say something new. If it changes, a new decision r
 | [0015](decisions/0015-crawl-then-ingest.md) | Crawl, ingest and identify are separate steps | Accepted |
 | [0016](decisions/0016-configuration-from-environment.md) | Configuration comes from environment variables, read directly | Accepted |
 | [0017](decisions/0017-stop-when-a-site-pushes-back.md) | Stop when a site pushes back | Accepted |
+| [0018](decisions/0018-relatedness-scoring.md) | Relatedness: weighted nights, personalized PageRank, top 50 | Accepted |
 
 ## Decided but not built yet
 
 - **Possibly ambiguous names** ([0008](decisions/0008-artist-identity.md)): very short or very common names should be flagged, to be scoped by city later.
 - **Fuzzy merge suggestions in the database** ([0008](decisions/0008-artist-identity.md)): the scoring exists; the review command, and remembering rejected pairs, don't yet.
-- **The derived layer** ([0007](decisions/0007-four-layer-schema.md), [0009](decisions/0009-graph-in-tables.md)): `artist_edges` and `related_artists` arrive with the graph job.
+- **Paths between two artists** ([0009](decisions/0009-graph-in-tables.md)): "how are A and B connected?" as a breadth-first search over `artist_edges`.
+- **Scene detection** (roadmap): grouping artists into scenes from the same graph.
 - **Conditional requests** ([0005](decisions/0005-idempotent-incremental-crawls.md)): `If-Modified-Since` for feeds.

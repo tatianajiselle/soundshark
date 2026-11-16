@@ -31,7 +31,7 @@ src/soundshark/
   models/       data only: Event, Page, ParsedPage, CrawlPolicy, CrawlRun
   interfaces/   what the engine depends on: Source, PageStore
   clients/      talking to websites: PoliteHttpClient, RobotsRules
-  services/     the logic: crawler, ingest, credits, artist_identity
+  services/     the logic: crawler, ingest, credits, artist_identity, artist_graph, graph_job, related_lookup
   stores/       PageStore implementations: FilePageStore
   db/           Postgres tables and connections (migrations live in migrations/)
   sources/      the demo source and the loader for real ones
@@ -45,12 +45,14 @@ This repo ships only the interface and a **demo source with fictional data**. Si
 Crawling, loading and matching are separate steps. `crawl` saves every fetched page under `data/` (ignored by git), keeping each version of a page that changes. `ingest` parses the saved pages again and upserts what the sources said into Postgres. `identify` matches every lineup slot to artists. A parser fix never needs a re-crawl, a matching fix never needs a re-ingest, and running any step twice gives the same database.
 
 ```sh
-uv run soundshark crawl              # fetch pages into data/ (demo source by default)
-uv run soundshark crawl -v           # plus a log line per request and page
-uv run alembic upgrade head          # create or update the tables in DATABASE_URL
-uv run soundshark ingest             # data/ into Postgres
-uv run soundshark identify           # credit new lineup slots to artists
-uv run soundshark identify --rebuild # redo all automatic matching; manual aliases are kept
+uv run soundshark crawl               # fetch pages into data/ (demo source by default)
+uv run soundshark crawl -v            # plus a log line per request and page
+uv run alembic upgrade head           # create or update the tables in DATABASE_URL
+uv run soundshark ingest              # data/ into Postgres
+uv run soundshark identify            # credit new lineup slots to artists
+uv run soundshark identify --rebuild  # redo all automatic matching; manual aliases are kept
+uv run soundshark graph               # rebuild artist edges and the top 50 related artists
+uv run soundshark related "Ora Vance" # who is closest, and why
 ```
 
 The schema has four layers (provenance, source facts, identity, derived): see [decision 0007](docs/decisions/0007-four-layer-schema.md).
