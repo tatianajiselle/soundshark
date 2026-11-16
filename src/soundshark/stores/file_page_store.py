@@ -75,6 +75,20 @@ def _page_files_in(directory: Path) -> list[Path]:
     )
 
 
+def _run_from_json_file(path: Path) -> CrawlRun:
+    record = json.loads(path.read_text())
+    for key in ("started_at", "finished_at"):
+        if record.get(key) is not None:
+            record[key] = datetime.fromisoformat(record[key])
+    return CrawlRun(**record)
+
+
+def _run_files_in(directory: Path) -> list[Path]:
+    if not directory.is_dir():
+        return []
+    return sorted(p for p in directory.iterdir() if p.suffix == ".json" and not p.name.startswith("."))
+
+
 def _run_as_json_dict(run: CrawlRun) -> dict[str, Any]:
     record = dataclasses.asdict(run)
     for key, value in record.items():
@@ -111,3 +125,8 @@ class FilePageStore:
         run_file = f"{_require_safe_path_segment(run.id, 'run id')}.json"
         run_json = json.dumps(_run_as_json_dict(run), indent=2).encode()
         await asyncio.to_thread(_write_file_atomically, self.root / "runs" / source_dir / run_file, run_json)
+
+    async def iter_runs(self, source_name: str) -> AsyncIterator[CrawlRun]:
+        directory = self.root / "runs" / _require_safe_path_segment(source_name, "source name")
+        for path in await asyncio.to_thread(_run_files_in, directory):
+            yield await asyncio.to_thread(_run_from_json_file, path)

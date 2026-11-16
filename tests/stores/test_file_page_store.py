@@ -88,3 +88,12 @@ async def test_no_temp_files_left_behind(tmp_path):
     await store.save_run(CrawlRun("demo"))
     leftovers = [p for p in tmp_path.rglob("*") if p.name.startswith(".") or p.suffix == ".tmp"]
     assert leftovers == []
+
+
+async def test_saved_runs_can_be_read_back(tmp_path):
+    store = FilePageStore(tmp_path)
+    run = CrawlRun("demo", pages_fetched=3, finished_at=datetime.now(UTC))
+    await store.save_run(run)
+    await store.save_run(CrawlRun("other"))
+    assert [r async for r in store.iter_runs("demo")] == [run]
+    assert [r async for r in store.iter_runs("never-crawled")] == []

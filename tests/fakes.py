@@ -107,6 +107,11 @@ class InMemoryPageStore:
     async def save_run(self, run: CrawlRun) -> None:
         self.saved_runs.append(run)
 
+    async def iter_runs(self, source_name: str) -> AsyncIterator[CrawlRun]:
+        for run in self.saved_runs:
+            if run.source_name == source_name:
+                yield run
+
 
 async def crawl_fake_site(site: FakeSite, source: FakeSource | None = None, **crawl_options) -> CrawlResult:
     async with httpx.AsyncClient(transport=httpx.MockTransport(site)) as http_client:
