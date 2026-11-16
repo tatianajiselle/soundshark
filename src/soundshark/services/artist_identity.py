@@ -11,6 +11,7 @@ _DASHES_TO_HYPHEN = str.maketrans({c: "-" for c in "‐‑‒–—―−"})
 _EDGE_CHARACTERS = string.punctuation + string.whitespace
 
 _B2B_SEPARATOR = re.compile(r"\s+(?:b[2-9]b|vs\.?)\s+", re.IGNORECASE)
+_PRESENTED_PROJECT = re.compile(r"\s+presents?:?\s+(?P<project>\S.*)$", re.IGNORECASE)
 _KNOWN_TAGS = ("live set", "dj set", "all night long", "hybrid", "live", "dj", "a/v")
 _TRAILING_TAG = re.compile(
     r"\s*(?:\((?P<paren>" + "|".join(map(re.escape, _KNOWN_TAGS)) + r")\)|\s(?P<bare>live|hybrid))\s*$",
@@ -36,6 +37,7 @@ class LineupSlot:
     acts: list[str] = field(default_factory=list)
     is_b2b: bool = False
     tags: list[str] = field(default_factory=list)
+    presented_projects: list[str] = field(default_factory=list)
 
 
 def _split_off_trailing_tags(act: str) -> tuple[str, list[str]]:
@@ -46,12 +48,22 @@ def _split_off_trailing_tags(act: str) -> tuple[str, list[str]]:
     return act, tags
 
 
+def _split_off_presented_project(act: str) -> tuple[str, str | None]:
+    match = _PRESENTED_PROJECT.search(act)
+    if match is None or match.start() == 0:
+        return act, None
+    return act[: match.start()], match["project"].strip()
+
+
 def split_lineup_slot(raw_text: str) -> LineupSlot:
     slot = LineupSlot(raw_text=raw_text)
     for part in _B2B_SEPARATOR.split(" ".join(raw_text.split())):
         act, tags = _split_off_trailing_tags(part.strip())
+        act, project = _split_off_presented_project(act)
         if act := act.strip():
             slot.acts.append(act)
+        if project:
+            slot.presented_projects.append(project)
         slot.tags.extend(t for t in tags if t not in slot.tags)
     slot.is_b2b = len(slot.acts) > 1
     return slot

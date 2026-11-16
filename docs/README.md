@@ -47,6 +47,7 @@ A decision is never edited to say something new. If it changes, a new decision r
 | [0016](decisions/0016-configuration-from-environment.md) | Configuration comes from environment variables, read directly | Accepted |
 | [0017](decisions/0017-stop-when-a-site-pushes-back.md) | Stop when a site pushes back | Accepted |
 | [0018](decisions/0018-relatedness-scoring.md) | Relatedness: weighted nights, personalized PageRank, top 50 | Accepted |
+| [0019](decisions/0019-presents-lines.md) | "X presents Y" credits X | Accepted |
 
 ## Decided but not built yet
 

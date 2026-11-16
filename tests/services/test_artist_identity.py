@@ -98,7 +98,7 @@ def test_normalize_is_idempotent(name):
 
 
 _WORD = st.text(alphabet="abcdefghijklmnopqrstuvwxyzäöü&'", min_size=1, max_size=8).filter(
-    lambda w: w.lower() not in {"live", "hybrid", "vs"}
+    lambda w: w.lower() not in {"live", "hybrid", "vs", "present", "presents"}
 )
 _ACT = st.lists(_WORD, min_size=1, max_size=3).map(" ".join)
 
@@ -113,3 +113,31 @@ def test_split_slot_never_loses_act_text(acts, seps, tags):
     for i, act in enumerate(acts[1:]):
         raw += f" {seps[i]} {act}{tags[i + 1]}"
     assert split_lineup_slot(raw).acts == acts
+
+
+@pytest.mark.parametrize(
+    ("raw", "acts", "projects"),
+    [
+        ("Ora Vance presents Night Garden", ["Ora Vance"], ["Night Garden"]),
+        ("Ora Vance Presents: Night Garden", ["Ora Vance"], ["Night Garden"]),
+        ("Ora Vance & Juno Hale present Tidewater", ["Ora Vance & Juno Hale"], ["Tidewater"]),
+        ("Ora Vance & Juno Hale present: Tidewater", ["Ora Vance & Juno Hale"], ["Tidewater"]),
+        ("Ora Vance presents Night Garden b2b Mirek Sol", ["Ora Vance", "Mirek Sol"], ["Night Garden"]),
+    ],
+)
+def test_presenting_a_project_credits_who_presents(raw, acts, projects):
+    slot = split_lineup_slot(raw)
+    assert slot.acts == acts
+    assert slot.presented_projects == projects
+
+
+def test_tags_come_off_before_the_project():
+    slot = split_lineup_slot("Ora Vance presents Night Garden (live)")
+    assert (slot.acts, slot.presented_projects, slot.tags) == (["Ora Vance"], ["Night Garden"], ["live"])
+
+
+@pytest.mark.parametrize("raw", ["The Harbour Present", "The Presents", "Presents of Mind"])
+def test_present_inside_a_name_is_not_split(raw):
+    slot = split_lineup_slot(raw)
+    assert slot.acts == [raw]
+    assert slot.presented_projects == []
