@@ -17,6 +17,7 @@ dev = [
     "respx>=0.21",
     "ruff>=0.8",
     "pyright[nodejs]>=1.1.390",
+    "hypothesis>=6.170.15",
 ]
 lessons = [
     "beautifulsoup4>=4.12",

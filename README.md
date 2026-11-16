@@ -22,7 +22,9 @@ San Francisco: Claudio PRC, DVS1, Lindsey Herbert, Fadi Mohem, Isabel Soto
 
 ## Architecture
 
-The engine is source-agnostic. Every data source is a plugin behind one async interface (`soundshark/sources/base.py`): a `name` and an async generator `events(client)` that yields `Event`s. The engine runs them all concurrently with one shared HTTP client.
+The engine (`soundshark/crawler.py`) does all the fetching: a concurrent breadth-first crawl that never fetches a URL twice, paces requests per host, always obeys robots.txt (including `Crawl-delay`), retries timeouts, 429s and 5xx with backoff and `Retry-After`, skips pages that still fail, and returns on its own when there's nothing left to fetch.
+
+A data source is a small plugin (`soundshark/sources/base.py`): its `seeds`, its `politeness` settings, `parse(page)` that turns a fetched page into events and links to follow, and `refresh_after(url)` that says when a stored copy is too old.
 
 This repo ships only the interface and a **demo source with fictional data**. Site-specific adapters aren't published: they're loaded at runtime from your own package via `SOUNDSHARK_SOURCES`, a comma-separated list of `module.path:ClassName` (copy `.env.example` to `.env`; it defaults to the demo source).
 
