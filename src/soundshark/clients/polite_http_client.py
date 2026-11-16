@@ -4,11 +4,12 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from urllib.parse import urljoin
 
 import httpx
 from structlog.typing import FilteringBoundLogger
 
-from soundshark.models import CrawlPolicy, Page
+from soundshark.models import CrawlPolicy, FetchFailure, Page
 from soundshark.utils import origin_of
 
 RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
@@ -48,13 +49,13 @@ class PoliteHttpClient:
         pacer = self._pacer_for(url)
         pacer.seconds_between_requests = max(pacer.seconds_between_requests, seconds_between_requests)
 
-    async def fetch_page(self, url: str) -> Page | None:
+    async def fetch_page(self, url: str) -> Page | FetchFailure:
         response = await self.get(url)
         if response is None:
-            return None
+            return FetchFailure(url=url, reason="no response after retries")
         if not response.is_success:
             self._log.warning("http.unexpected_status", url=url, status=response.status_code)
-            return None
+            return FetchFailure(url=url, reason=f"status {response.status_code}", status=response.status_code)
         return Page(
             url=url,
             status=response.status_code,
@@ -70,7 +71,7 @@ class PoliteHttpClient:
         for attempt in range(1, attempts_allowed + 1):
             is_last_attempt = attempt == attempts_allowed
             try:
-                response = await self._send_when_allowed(pacer, url)
+                response = await self._send_following_redirects(url)
             except httpx.TransportError as error:
                 reason = f"{type(error).__name__}: {error}"
                 if is_last_attempt:
@@ -99,7 +100,20 @@ class PoliteHttpClient:
             pacer.hold_off_until(asyncio.get_running_loop().time() + wait_seconds)
         return None
 
-    async def _send_when_allowed(self, pacer: HostPacer, url: str) -> httpx.Response:
+    async def _send_following_redirects(self, url: str) -> httpx.Response:
+        current_url = url
+        response = await self._send_when_allowed(current_url)
+        redirects_followed = 0
+        while response.is_redirect and redirects_followed < self._policy.max_redirects:
+            next_url = urljoin(current_url, response.headers["location"])
+            self._log.debug("http.redirected", url=current_url, to=next_url, status=response.status_code)
+            current_url = next_url
+            response = await self._send_when_allowed(current_url)
+            redirects_followed += 1
+        return response
+
+    async def _send_when_allowed(self, url: str) -> httpx.Response:
+        pacer = self._pacer_for(url)
         async with pacer.concurrency_limit:
             await pacer.wait_for_turn()
             started = time.perf_counter()
@@ -107,7 +121,7 @@ class PoliteHttpClient:
                 url,
                 headers={"User-Agent": self._policy.user_agent},
                 timeout=self._policy.request_timeout_seconds,
-                follow_redirects=True,
+                follow_redirects=False,
             )
         self._log.debug(
             "http.response",

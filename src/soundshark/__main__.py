@@ -90,7 +90,7 @@ def print_credit_summary(summary: CreditSummary) -> None:
     )
 
 
-def parse_args() -> argparse.Namespace:
+def build_parser() -> argparse.ArgumentParser:
     shared = argparse.ArgumentParser(add_help=False)
     shared.add_argument("--store", type=Path, default=DEFAULT_STORE_DIR, help="where fetched pages are kept")
     shared.add_argument("-v", "--verbose", action="store_true", help="also log every request and page")
@@ -106,11 +106,11 @@ def parse_args() -> argparse.Namespace:
     identify_command.add_argument(
         "--rebuild", action="store_true", help="forget automatic matches first; manual aliases are kept"
     )
-    return parser.parse_args()
+    return parser
 
 
-if __name__ == "__main__":
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     load_dotenv(find_dotenv(usecwd=True))
     configure_logging(verbose=args.verbose, json_output=args.log_json)
     if args.command == "crawl":
@@ -119,3 +119,8 @@ if __name__ == "__main__":
         asyncio.run(ingest_all_sources(args.store))
     else:
         asyncio.run(identify_artists(args.rebuild))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

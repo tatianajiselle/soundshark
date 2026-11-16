@@ -29,6 +29,13 @@ class Page:
 
 
 @dataclass(frozen=True, slots=True)
+class FetchFailure:
+    url: str
+    reason: str
+    status: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class StoredPageVersion:
     page: Page
     storage_path: str

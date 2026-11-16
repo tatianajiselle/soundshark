@@ -168,3 +168,26 @@ async def test_a_cancelled_crawl_records_why_it_stopped():
     [run] = store.saved_runs
     assert run.error is not None and run.error.startswith("CancelledError")
     assert run.finished_at is not None
+
+
+async def test_a_forbidden_page_stops_the_whole_crawl():
+    site = FakeSite({"A": ["B", "C", "D"], "B": [], "C": [], "D": []})
+    site.script("B", lambda: httpx.Response(403))
+    result = await crawl_fake_site(site)
+    assert result.run.error is not None and "answered 403" in result.run.error
+    assert site.fetched_page_names() == {"A", "B"}
+
+
+async def test_failures_in_a_row_stop_the_crawl():
+    hub = {"A": [str(i) for i in range(10)]}
+    site = FakeSite(hub)
+    result = await crawl_fake_site(site, FakeSource(max_retries=0, max_consecutive_failures=3))
+    assert result.run.error is not None and "3 failures in a row" in result.run.error
+    assert len(site.fetched_page_names()) == 4
+
+
+async def test_a_success_resets_the_failure_count():
+    site = FakeSite({"A": ["x1", "x2", "B", "x3", "x4"], "B": []})
+    result = await crawl_fake_site(site, FakeSource(max_retries=0, max_consecutive_failures=3))
+    assert result.run.error is None
+    assert result.run.pages_failed == 4

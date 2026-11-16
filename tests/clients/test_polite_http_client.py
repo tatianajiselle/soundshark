@@ -3,6 +3,7 @@ import pytest
 import structlog
 
 from soundshark.clients import PoliteHttpClient, retry_after_seconds
+from soundshark.models import FetchFailure, Page
 from tests.fakes import FakeSite, fake_url, fast_policy
 
 
@@ -68,10 +69,34 @@ async def test_spaces_requests_to_the_same_host():
     assert min(gaps) >= 0.045
 
 
-async def test_fetch_page_returns_none_for_error_statuses():
+async def test_fetch_page_reports_error_statuses():
     async with httpx.AsyncClient(transport=httpx.MockTransport(FakeSite({}))) as http_client:
         polite = PoliteHttpClient(http_client, fast_policy(), structlog.get_logger())
-        assert await polite.fetch_page(fake_url("missing")) is None
+        failure = await polite.fetch_page(fake_url("missing"))
+    assert failure == FetchFailure(url=fake_url("missing"), reason="status 404", status=404)
+
+
+async def test_redirects_are_followed_and_each_hop_waits_its_turn():
+    site = FakeSite({"B": []})
+    site.script("A", lambda: httpx.Response(301, headers={"Location": "/B"}))
+    policy = fast_policy(seconds_between_requests_per_host=0.05)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(site)) as http_client:
+        page = await PoliteHttpClient(http_client, policy, structlog.get_logger()).fetch_page(fake_url("A"))
+    assert isinstance(page, Page) and page.url == fake_url("A")
+    first_request, redirected_request = site.page_request_times
+    assert redirected_request - first_request >= 0.045
+
+
+async def test_endless_redirects_are_a_failure():
+    site = FakeSite({})
+    site.script("A", *[lambda: httpx.Response(302, headers={"Location": "/A"})] * 10)
+    policy = fast_policy(max_redirects=3)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(site)) as http_client:
+        failure = await PoliteHttpClient(http_client, policy, structlog.get_logger()).fetch_page(
+            fake_url("A")
+        )
+    assert isinstance(failure, FetchFailure) and failure.status == 302
+    assert site.requests_per_path["/A"] == 4
 
 
 @pytest.mark.parametrize(
