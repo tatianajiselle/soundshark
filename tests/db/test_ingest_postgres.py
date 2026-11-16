@@ -1,13 +1,6 @@
-import os
 from dataclasses import replace
 from datetime import timedelta
-from pathlib import Path
 
-import httpx
-import pytest
-from alembic import command
-from alembic.config import Config
-from dotenv import load_dotenv
 from sqlalchemy import func, insert, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -21,50 +14,13 @@ from soundshark.db import (
     RawPageRow,
     TableBase,
     VenueRow,
-    create_database_engine,
 )
-from soundshark.services import crawl
 from soundshark.services.credits import build_credits
 from soundshark.services.ingest import ingest_stored_pages
 from soundshark.sources import DemoSource
-from tests.fakes import InMemoryPageStore
+from tests.fakes import InMemoryPageStore, crawl_demo_into_memory
 
-load_dotenv()
-TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
-ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
 MARCH_URL = "https://demo.soundshark.test/2026-03/"
-
-pytestmark = pytest.mark.skipif(not TEST_DATABASE_URL, reason="TEST_DATABASE_URL is not set")
-
-
-def run_alembic(step: str, target: str) -> None:
-    config = Config(str(ALEMBIC_INI))
-    config.attributes["database_url"] = TEST_DATABASE_URL
-    getattr(command, step)(config, target)
-
-
-@pytest.fixture(scope="session")
-def migrated_test_database():
-    run_alembic("downgrade", "base")
-    run_alembic("upgrade", "head")
-
-
-@pytest.fixture
-async def engine(migrated_test_database):
-    engine = create_database_engine(TEST_DATABASE_URL)
-    table_names = ", ".join(table.name for table in TableBase.metadata.sorted_tables)
-    async with engine.begin() as connection:
-        await connection.execute(text(f"truncate {table_names} restart identity cascade"))
-    yield engine
-    await engine.dispose()
-
-
-async def demo_page_store() -> InMemoryPageStore:
-    source = DemoSource(seconds_between_requests=0)
-    store = InMemoryPageStore()
-    async with httpx.AsyncClient(transport=source.http_transport) as http_client:
-        await crawl(source, http_client, page_store=store)
-    return store
 
 
 async def ingest_and_identify(engine: AsyncEngine, store: InMemoryPageStore) -> None:
@@ -111,13 +67,19 @@ async def test_migrations_create_every_table_and_search_extensions(engine):
     async with engine.connect() as connection:
         version = (await connection.execute(text("select version_num from alembic_version"))).scalar_one()
         extensions = (await connection.execute(text("select extname from pg_extension"))).scalars().all()
-    assert version == "0001"
+    assert version == "0002"
     assert {"unaccent", "pg_trgm"} <= set(extensions)
-    assert set(await count_rows(engine)) == {table.name for table in TableBase.metadata.sorted_tables}
+    async with engine.connect() as connection:
+        tables = (
+            await connection.execute(
+                text("select table_name from information_schema.tables where table_schema = 'public'")
+            )
+        ).scalars()
+    assert set(tables) - {"alembic_version"} == {table.name for table in TableBase.metadata.sorted_tables}
 
 
 async def test_ingest_writes_only_source_facts_and_provenance(engine):
-    summary = await ingest_stored_pages(engine, DemoSource(), await demo_page_store())
+    summary = await ingest_stored_pages(engine, DemoSource(), await crawl_demo_into_memory())
     assert summary.pages_parsed == 3
     assert summary.events_written == 4
     assert await count_rows(engine) == {
@@ -133,7 +95,7 @@ async def test_ingest_writes_only_source_facts_and_provenance(engine):
 
 
 async def test_identify_creates_artists_aliases_and_credits(engine):
-    await ingest_stored_pages(engine, DemoSource(), await demo_page_store())
+    await ingest_stored_pages(engine, DemoSource(), await crawl_demo_into_memory())
     summary = await build_credits(engine)
     assert summary.artists_created == 8
     counts = await count_rows(engine)
@@ -141,7 +103,7 @@ async def test_identify_creates_artists_aliases_and_credits(engine):
 
 
 async def test_every_event_traces_back_to_a_page_version_and_a_crawl(engine):
-    store = await demo_page_store()
+    store = await crawl_demo_into_memory()
     [crawl_run] = store.saved_runs
     await ingest_stored_pages(engine, DemoSource(), store)
     rows = await fetch_all(
@@ -155,20 +117,20 @@ async def test_every_event_traces_back_to_a_page_version_and_a_crawl(engine):
 
 
 async def test_venues_get_their_timezone(engine):
-    await ingest_stored_pages(engine, DemoSource(), await demo_page_store())
+    await ingest_stored_pages(engine, DemoSource(), await crawl_demo_into_memory())
     timezones = {tz for (tz,) in await fetch_all(engine, select(VenueRow.timezone))}
     assert timezones == {"Europe/Berlin"}
 
 
 async def test_event_times_keep_their_time_zone(engine):
-    await ingest_stored_pages(engine, DemoSource(), await demo_page_store())
+    await ingest_stored_pages(engine, DemoSource(), await crawl_demo_into_memory())
     [(starts_at,)] = await fetch_all(engine, select(EventRow.starts_at).where(EventRow.source_id == "d1"))
     assert starts_at.utcoffset() is not None
     assert starts_at.isoformat().startswith("2026-03-06T22:00:00")
 
 
 async def test_running_everything_twice_changes_nothing(engine):
-    store = await demo_page_store()
+    store = await crawl_demo_into_memory()
     await ingest_and_identify(engine, store)
     first_counts = await count_rows(engine)
     first_events = sorted(await fetch_all(engine, select(EventRow.source_id, EventRow.id)))
@@ -188,7 +150,7 @@ async def test_running_everything_twice_changes_nothing(engine):
 
 
 async def test_b2b_slot_credits_both_artists(engine):
-    await ingest_and_identify(engine, await demo_page_store())
+    await ingest_and_identify(engine, await crawl_demo_into_memory())
     credited = await fetch_all(
         engine,
         select(ArtistRow.name, LineupSlotRow.is_b2b)
@@ -200,7 +162,7 @@ async def test_b2b_slot_credits_both_artists(engine):
 
 
 async def test_changed_page_keeps_both_versions_and_replaces_the_lineup(engine):
-    store = await demo_page_store()
+    store = await crawl_demo_into_memory()
     await ingest_and_identify(engine, store)
     await change_march_lineup(store, "Tamsin Rook", "Nova Quist")
     summary = await ingest_stored_pages(engine, DemoSource(), store)
@@ -255,7 +217,7 @@ async def test_manual_alias_wins_and_survives_a_rebuild(engine):
         [(count,)] = await fetch_all(engine, select(func.count()).where(CreditRow.artist_id == chosen_artist))
         return count
 
-    await ingest_and_identify(engine, await demo_page_store())
+    await ingest_and_identify(engine, await crawl_demo_into_memory())
     assert await juno_credits() == 2
 
     rebuild = await build_credits(engine, rebuild=True)
@@ -274,5 +236,5 @@ async def test_manual_alias_wins_and_survives_a_rebuild(engine):
 
 
 async def test_artist_kind_defaults_to_unknown(engine):
-    await ingest_and_identify(engine, await demo_page_store())
+    await ingest_and_identify(engine, await crawl_demo_into_memory())
     assert {kind for (kind,) in await fetch_all(engine, select(ArtistRow.kind))} == {"unknown"}
