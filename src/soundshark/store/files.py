@@ -1,12 +1,3 @@
-"""A RawStore on the local filesystem.
-
-    <root>/raw/<source>/<sha256(url)>.json.gz   latest copy of each page
-    <root>/runs/<source>/<run id>.json          one file per crawl run
-
-Writes are atomic (temp file in the same directory, then os.replace), so a crash
-never leaves a half-written page behind.
-"""
-
 import asyncio
 import base64
 import dataclasses

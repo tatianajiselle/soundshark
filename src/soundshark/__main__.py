@@ -1,8 +1,3 @@
-"""Run every configured source at once and summarize what came back.
-
-uv run python -m soundshark
-"""
-
 import asyncio
 import time
 

@@ -1,5 +1,3 @@
-"""The shapes every source produces. The engine and graph only ever see these."""
-
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -19,7 +17,6 @@ class Event:
 
     @property
     def artists(self) -> list[str]:
-        """Everyone on the bill, across all rooms, without duplicates."""
         seen: dict[str, None] = {}
         for lineup in self.rooms.values():
             for name in lineup:
