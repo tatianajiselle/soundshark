@@ -1,3 +1,4 @@
+import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -12,6 +13,7 @@ class Page:
     fetched_at: datetime
     content_type: str | None = None
     encoding: str = "utf-8"
+    crawl_run_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.fetched_at.tzinfo is None:
@@ -20,6 +22,24 @@ class Page:
     @property
     def text(self) -> str:
         return self.body.decode(self.encoding, errors="replace")
+
+    @property
+    def content_sha256(self) -> str:
+        return hashlib.sha256(self.body).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class FetchFailure:
+    url: str
+    reason: str
+    status: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class StoredPageVersion:
+    page: Page
+    storage_path: str
+    is_latest: bool
 
 
 @dataclass(slots=True)

@@ -4,7 +4,7 @@ from datetime import timedelta
 
 import httpx
 import pytest
-from hypothesis import given, settings
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
 from soundshark.interfaces import PageStore
@@ -122,6 +122,11 @@ page_names = st.sampled_from([str(i) for i in range(12)])
 
 
 @settings(max_examples=60, deadline=None)
+@example(
+    links_by_page={"0": ["1", "2", "9"], "5": [], "3": [], "6": ["3"], "1": ["4", "7", "8", "6"]},
+    max_depth=None,
+    concurrency=1,
+)
 @given(
     links_by_page=st.dictionaries(page_names, st.lists(page_names, max_size=5), min_size=1),
     max_depth=st.none() | st.integers(0, 4),
@@ -132,3 +137,73 @@ def test_concurrent_crawl_visits_exactly_what_sequential_bfs_does(links_by_page,
     source = FakeSource(seed_pages=(seed,), max_concurrent_requests_per_host=concurrency)
     result = asyncio.run(crawl_fake_site(FakeSite(links_by_page), source, max_depth=max_depth))
     assert result.visited_urls == {fake_url(page) for page in sequential_bfs(links_by_page, seed, max_depth)}
+
+
+async def test_fetched_pages_carry_the_crawl_run_id():
+    store = InMemoryPageStore()
+    result = await crawl_fake_site(FakeSite(EXAMPLE_SITE), page_store=store)
+    assert {page.crawl_run_id async for page in store.iter_pages("fake")} == {result.run.id}
+
+
+async def test_the_run_is_saved_when_it_starts_and_when_it_ends():
+    store = InMemoryPageStore()
+    started_runs = []
+    original_save_run = store.save_run
+
+    async def remember_save(run):
+        started_runs.append(run.finished_at)
+        await original_save_run(run)
+
+    store.save_run = remember_save
+    await crawl_fake_site(FakeSite(EXAMPLE_SITE), page_store=store)
+    assert started_runs[0] is None
+    assert started_runs[-1] is not None
+
+
+async def test_a_cancelled_crawl_records_why_it_stopped():
+    store = InMemoryPageStore()
+    site = FakeSite({"A": []})
+    site.response_delay_seconds = 5
+    async with httpx.AsyncClient(transport=httpx.MockTransport(site)) as http_client:
+        crawl_task = asyncio.create_task(crawl(FakeSource(), http_client, page_store=store))
+        await asyncio.sleep(0.05)
+        crawl_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await crawl_task
+    [run] = store.saved_runs
+    assert run.error is not None and run.error.startswith("CancelledError")
+    assert run.finished_at is not None
+
+
+async def test_a_forbidden_page_stops_the_whole_crawl():
+    site = FakeSite({"A": ["B", "C", "D"], "B": [], "C": [], "D": []})
+    site.script("B", lambda: httpx.Response(403))
+    result = await crawl_fake_site(site)
+    assert result.run.error is not None and "answered 403" in result.run.error
+    assert site.fetched_page_names() == {"A", "B"}
+
+
+async def test_server_errors_in_a_row_stop_the_crawl():
+    site = FakeSite({"A": [str(i) for i in range(10)]})
+    for i in range(10):
+        site.script(str(i), lambda: httpx.Response(503))
+    result = await crawl_fake_site(site, FakeSource(max_retries=0, max_consecutive_failures=3))
+    assert result.run.error is not None and "3 failures in a row" in result.run.error
+    assert len(site.fetched_page_names()) == 4
+
+
+async def test_missing_pages_do_not_stop_the_crawl():
+    site = FakeSite({"A": [str(i) for i in range(10)]})
+    result = await crawl_fake_site(site, FakeSource(max_retries=0, max_consecutive_failures=3))
+    assert result.run.error is None
+    assert result.run.pages_failed == 10
+    assert len(site.fetched_page_names()) == 11
+
+
+async def test_a_success_resets_the_failure_count():
+    site = FakeSite({"A": ["x1", "x2", "B", "x3", "x4"], "B": []})
+    for page in ("x1", "x2", "x3", "x4"):
+        site.script(page, lambda: httpx.Response(503))
+    result = await crawl_fake_site(site, FakeSource(max_retries=0, max_consecutive_failures=3))
+    assert result.run.error is None
+    assert result.run.pages_failed == 4

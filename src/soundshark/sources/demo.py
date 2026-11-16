@@ -84,6 +84,7 @@ class DemoSource:
                 city=item["city"],
                 rooms=item["rooms"],
                 url=page.url,
+                venue_timezone="Europe/Berlin",
             )
             for item in demo_page.get("events", [])
         ]

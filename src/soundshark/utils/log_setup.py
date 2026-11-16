@@ -22,5 +22,5 @@ def configure_logging(*, verbose: bool = False, json_output: bool = False) -> No
         ],
         wrapper_class=structlog.make_filtering_bound_logger(logging.DEBUG if verbose else logging.INFO),
         logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
-        cache_logger_on_first_use=True,
+        cache_logger_on_first_use=False,
     )

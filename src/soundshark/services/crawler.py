@@ -1,5 +1,6 @@
 import asyncio
 import time
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import httpx
@@ -8,7 +9,7 @@ from structlog.typing import FilteringBoundLogger
 
 from soundshark.clients import PoliteHttpClient, RobotsRules
 from soundshark.interfaces import PageStore, Source
-from soundshark.models import CrawlResult, CrawlRun, Event, Page
+from soundshark.models import CrawlResult, CrawlRun, Event, FetchFailure, Page
 from soundshark.utils import is_web_url, without_fragment
 
 log: FilteringBoundLogger = structlog.get_logger()
@@ -28,10 +29,25 @@ async def crawl(
 
     run_log.info("crawl.started", seed_urls=list(source.seed_urls), max_pages=max_pages, max_depth=max_depth)
     started = time.perf_counter()
-    for url in source.seed_urls:
-        job.enqueue_if_new(url, depth=0)
-    await job.run_workers_until_queue_is_empty()
-    run.finished_at = datetime.now(UTC)
+    if page_store is not None:
+        await page_store.save_run(run)
+    try:
+        for url in source.seed_urls:
+            job.enqueue_if_new(url, depth=0)
+        await job.run_workers_until_queue_is_empty()
+        if job.stop_reason is not None:
+            run.error = f"stopped early: {job.stop_reason}"
+            run_log.warning(
+                "crawl.stopped_early", reason=job.stop_reason, pages_left_unfetched=job.pages_skipped
+            )
+    except BaseException as error:
+        run.error = f"{type(error).__name__}: {error}"
+        run_log.error("crawl.crashed", error=run.error)
+        raise
+    finally:
+        run.finished_at = datetime.now(UTC)
+        if page_store is not None:
+            await page_store.save_run(run)
 
     run_log.info(
         "crawl.finished",
@@ -42,8 +58,6 @@ async def crawl(
         events_found=run.events_found,
         duration_seconds=round(time.perf_counter() - started, 2),
     )
-    if page_store is not None:
-        await page_store.save_run(run)
     return CrawlResult(events=job.events, visited_urls=job.visited_urls, run=run)
 
 
@@ -69,8 +83,13 @@ class _CrawlJob:
         self.queue: asyncio.Queue[tuple[str, int]] = asyncio.Queue()
         self.visited_urls: set[str] = set()
         self.events: list[Event] = []
+        self.consecutive_failures = 0
+        self.stop_reason: str | None = None
+        self.pages_skipped = 0
 
     def enqueue_if_new(self, url: str, depth: int) -> None:
+        if self.stop_reason is not None:
+            return
         url = without_fragment(url)
         if url in self.visited_urls or not is_web_url(url):
             return
@@ -90,6 +109,10 @@ class _CrawlJob:
     async def _work_through_queue(self) -> None:
         while True:
             url, depth = await self.queue.get()
+            if self.stop_reason is not None:
+                self.pages_skipped += 1
+                self.queue.task_done()
+                continue
             try:
                 await self._process(url, depth)
             except Exception:
@@ -129,14 +152,36 @@ class _CrawlJob:
             self.run.pages_blocked_by_robots += 1
             self.log.info("page.blocked_by_robots", url=url, depth=depth)
             return None
-        page = await self.http.fetch_page(url)
-        if page is None:
+        fetched = await self.http.fetch_page(url)
+        if isinstance(fetched, FetchFailure):
             self.run.pages_failed += 1
+            self._count_failure(fetched)
             return None
+        self.consecutive_failures = 0
+        page = replace(fetched, crawl_run_id=self.run.id)
         self.run.pages_fetched += 1
         if self.page_store is not None:
             await self.page_store.save_page(self.source.name, page)
         return page
+
+    def _count_failure(self, failure: FetchFailure) -> None:
+        policy = self.source.crawl_policy
+        if failure.status in policy.statuses_that_stop_the_crawl:
+            self._stop(f"{failure.url} answered {failure.status}")
+            return
+        if not _is_site_trouble(failure):
+            self.consecutive_failures = 0
+            return
+        self.consecutive_failures += 1
+        if self.consecutive_failures >= policy.max_consecutive_failures:
+            self._stop(
+                f"{self.consecutive_failures} failures in a row, last: {failure.url} ({failure.reason})"
+            )
+
+    def _stop(self, reason: str) -> None:
+        if self.stop_reason is None:
+            self.stop_reason = reason
+            self.log.warning("crawl.stopping", reason=reason)
 
     async def _fresh_stored_copy(self, url: str) -> Page | None:
         if self.page_store is None:
@@ -148,3 +193,7 @@ class _CrawlJob:
         if max_age is None or datetime.now(UTC) - stored.fetched_at < max_age:
             return stored
         return None
+
+
+def _is_site_trouble(failure: FetchFailure) -> bool:
+    return failure.status is None or failure.status == 429 or failure.status >= 500

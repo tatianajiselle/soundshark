@@ -2,11 +2,12 @@ import asyncio
 import json
 from collections import Counter, deque
 from collections.abc import AsyncIterator, Callable
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from soundshark.models import CrawlPolicy, CrawlResult, CrawlRun, Event, Page, ParsedPage
+from soundshark.models import CrawlPolicy, CrawlResult, CrawlRun, Event, Page, ParsedPage, StoredPageVersion
 from soundshark.services import crawl
 
 FAKE_SITE_URL = "https://site.test"
@@ -90,22 +91,47 @@ class FakeSite:
 
 class InMemoryPageStore:
     def __init__(self) -> None:
-        self.pages: dict[tuple[str, str], Page] = {}
-        self.saved_runs: list[CrawlRun] = []
+        self.versions: dict[tuple[str, str], list[Page]] = {}
+        self.runs_by_id: dict[str, CrawlRun] = {}
+
+    @property
+    def saved_runs(self) -> list[CrawlRun]:
+        return list(self.runs_by_id.values())
 
     async def load_page(self, source_name: str, url: str) -> Page | None:
-        return self.pages.get((source_name, url))
+        versions = self.versions.get((source_name, url))
+        return versions[-1] if versions else None
 
     async def save_page(self, source_name: str, page: Page) -> None:
-        self.pages[(source_name, page.url)] = page
+        versions = self.versions.setdefault((source_name, page.url), [])
+        if versions and versions[-1].content_sha256 == page.content_sha256:
+            versions[-1] = page
+        else:
+            versions.append(page)
 
     async def iter_pages(self, source_name: str) -> AsyncIterator[Page]:
-        for (stored_source, _), page in self.pages.items():
+        for (stored_source, _), versions in self.versions.items():
             if stored_source == source_name:
-                yield page
+                yield versions[-1]
+
+    async def iter_page_versions(self, source_name: str) -> AsyncIterator[StoredPageVersion]:
+        for (stored_source, url), versions in self.versions.items():
+            if stored_source != source_name:
+                continue
+            for position, page in enumerate(versions):
+                yield StoredPageVersion(
+                    page=page,
+                    storage_path=f"memory/{source_name}/{url}/{position}",
+                    is_latest=position == len(versions) - 1,
+                )
 
     async def save_run(self, run: CrawlRun) -> None:
-        self.saved_runs.append(run)
+        self.runs_by_id[run.id] = replace(run)
+
+    async def iter_runs(self, source_name: str) -> AsyncIterator[CrawlRun]:
+        for run in self.runs_by_id.values():
+            if run.source_name == source_name:
+                yield run
 
 
 async def crawl_fake_site(site: FakeSite, source: FakeSource | None = None, **crawl_options) -> CrawlResult:
