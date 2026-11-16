@@ -2,7 +2,7 @@
 
 Map a music scene. **SoundShark** crawls DJ lineups (past and upcoming) into a graph of who plays with whom, then listens to the music to find who really sounds alike.
 
-> Work in progress, built in the open as a way to learn async Python properly.
+> Work in progress...
 
 ## Roadmap
 
