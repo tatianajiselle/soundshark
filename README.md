@@ -32,6 +32,10 @@ This repo ships only the interface and a **demo source with fictional data**. Si
 uv run python -m soundshark        # runs the demo source by default
 ```
 
+## Design notes
+
+Why SoundShark is built the way it is: [docs/](docs/README.md).
+
 ## Development
 
 Uses [uv](https://docs.astral.sh/uv/). It installs the right Python and every dependency from the lockfile.
