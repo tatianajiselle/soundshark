@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from soundshark.models import Event
+from soundshark.models.event import Event
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +23,6 @@ class Page:
 
 
 @dataclass(slots=True)
-class Parsed:
+class ParsedPage:
     events: list[Event] = field(default_factory=list)
-    links: list[str] = field(default_factory=list)
+    links_to_follow: list[str] = field(default_factory=list)

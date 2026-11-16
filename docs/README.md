@@ -41,3 +41,5 @@ A decision is never edited to say something new. If it changes, a new decision r
 | [0010](decisions/0010-read-only-explorer.md) | A public, read-only explorer with no accounts | Accepted |
 | [0011](decisions/0011-one-small-server.md) | Start on one small server | Accepted |
 | [0012](decisions/0012-data-ethics.md) | Data ethics: show connections, never copies | Accepted |
+| [0013](decisions/0013-layout-and-names.md) | Code is grouped by role, and names say what things do | Accepted |
+| [0014](decisions/0014-structured-logging.md) | Structured logging: named events with context | Accepted |

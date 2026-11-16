@@ -22,8 +22,8 @@ class Event:
 
     @property
     def artists(self) -> list[str]:
-        seen: dict[str, None] = {}
+        unique_in_order: dict[str, None] = {}
         for lineup in self.rooms.values():
             for name in lineup:
-                seen.setdefault(name, None)
-        return list(seen)
+                unique_in_order.setdefault(name, None)
+        return list(unique_in_order)
