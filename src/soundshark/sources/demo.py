@@ -1,8 +1,3 @@
-"""A demo source with made-up events, so anyone can run SoundShark without real data.
-
-Every artist, venue and event here is fictional.
-"""
-
 import asyncio
 from collections.abc import AsyncIterator
 from datetime import datetime

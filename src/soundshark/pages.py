@@ -1,5 +1,3 @@
-"""What the engine fetches and what a source makes of it."""
-
 from dataclasses import dataclass, field
 from datetime import datetime
 
