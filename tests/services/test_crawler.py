@@ -4,7 +4,7 @@ from datetime import timedelta
 
 import httpx
 import pytest
-from hypothesis import given, settings
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
 from soundshark.interfaces import PageStore
@@ -122,6 +122,11 @@ page_names = st.sampled_from([str(i) for i in range(12)])
 
 
 @settings(max_examples=60, deadline=None)
+@example(
+    links_by_page={"0": ["1", "2", "9"], "5": [], "3": [], "6": ["3"], "1": ["4", "7", "8", "6"]},
+    max_depth=None,
+    concurrency=1,
+)
 @given(
     links_by_page=st.dictionaries(page_names, st.lists(page_names, max_size=5), min_size=1),
     max_depth=st.none() | st.integers(0, 4),
@@ -178,16 +183,27 @@ async def test_a_forbidden_page_stops_the_whole_crawl():
     assert site.fetched_page_names() == {"A", "B"}
 
 
-async def test_failures_in_a_row_stop_the_crawl():
-    hub = {"A": [str(i) for i in range(10)]}
-    site = FakeSite(hub)
+async def test_server_errors_in_a_row_stop_the_crawl():
+    site = FakeSite({"A": [str(i) for i in range(10)]})
+    for i in range(10):
+        site.script(str(i), lambda: httpx.Response(503))
     result = await crawl_fake_site(site, FakeSource(max_retries=0, max_consecutive_failures=3))
     assert result.run.error is not None and "3 failures in a row" in result.run.error
     assert len(site.fetched_page_names()) == 4
 
 
+async def test_missing_pages_do_not_stop_the_crawl():
+    site = FakeSite({"A": [str(i) for i in range(10)]})
+    result = await crawl_fake_site(site, FakeSource(max_retries=0, max_consecutive_failures=3))
+    assert result.run.error is None
+    assert result.run.pages_failed == 10
+    assert len(site.fetched_page_names()) == 11
+
+
 async def test_a_success_resets_the_failure_count():
     site = FakeSite({"A": ["x1", "x2", "B", "x3", "x4"], "B": []})
+    for page in ("x1", "x2", "x3", "x4"):
+        site.script(page, lambda: httpx.Response(503))
     result = await crawl_fake_site(site, FakeSource(max_retries=0, max_consecutive_failures=3))
     assert result.run.error is None
     assert result.run.pages_failed == 4

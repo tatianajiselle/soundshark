@@ -11,7 +11,7 @@ Redirects had a smaller gap: the HTTP library followed them immediately, so a re
 ## Decision
 
 - **A blocking answer stops the whole crawl.** Any 401, 403 or 451 ends the crawl: nothing else is fetched, and the reason is saved on the crawl run.
-- **Failures in a row stop the whole crawl.** After 5 pages in a row fail (after their own retries), the crawl ends the same way. Any success resets the count.
+- **Trouble in a row stops the whole crawl.** After 5 pages in a row get no response, a 429 or a 5xx (each after its own retries), the crawl ends the same way. A missing page (404) is not trouble: the site answered, so it resets the count like any other answer.
 - **Every redirect hop waits its turn**, like any other request to that site, up to 5 hops.
 - A stopped crawl still saves what it fetched and its crawl run, with `error` saying why.
 

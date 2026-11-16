@@ -166,10 +166,14 @@ class _CrawlJob:
 
     def _count_failure(self, failure: FetchFailure) -> None:
         policy = self.source.crawl_policy
-        self.consecutive_failures += 1
         if failure.status in policy.statuses_that_stop_the_crawl:
             self._stop(f"{failure.url} answered {failure.status}")
-        elif self.consecutive_failures >= policy.max_consecutive_failures:
+            return
+        if not _is_site_trouble(failure):
+            self.consecutive_failures = 0
+            return
+        self.consecutive_failures += 1
+        if self.consecutive_failures >= policy.max_consecutive_failures:
             self._stop(
                 f"{self.consecutive_failures} failures in a row, last: {failure.url} ({failure.reason})"
             )
@@ -189,3 +193,7 @@ class _CrawlJob:
         if max_age is None or datetime.now(UTC) - stored.fetched_at < max_age:
             return stored
         return None
+
+
+def _is_site_trouble(failure: FetchFailure) -> bool:
+    return failure.status is None or failure.status == 429 or failure.status >= 500

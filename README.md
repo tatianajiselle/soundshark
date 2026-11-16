@@ -22,7 +22,7 @@ San Francisco: Claudio PRC, DVS1, Lindsey Herbert, Fadi Mohem, Isabel Soto
 
 ## Architecture
 
-The crawl engine (`services/crawler.py`) does all the fetching: a concurrent breadth-first crawl that never fetches a URL twice and returns on its own when there's nothing left to fetch. Talking to websites is split out into `clients/`: `PoliteHttpClient` paces requests per host and retries timeouts, 429s and 5xx with backoff and `Retry-After`; `RobotsRules` always obeys robots.txt, including `Crawl-delay`. A 401, 403 or 451, or five failures in a row, stops the whole crawl ([decision 0017](docs/decisions/0017-stop-when-a-site-pushes-back.md)).
+The crawl engine (`services/crawler.py`) does all the fetching: a concurrent breadth-first crawl that never fetches a URL twice and returns on its own when there's nothing left to fetch. Talking to websites is split out into `clients/`: `PoliteHttpClient` paces requests per host and retries timeouts, 429s and 5xx with backoff and `Retry-After`; `RobotsRules` always obeys robots.txt, including `Crawl-delay`. A 401, 403 or 451, or five timeouts, 429s or server errors in a row, stops the whole crawl ([decision 0017](docs/decisions/0017-stop-when-a-site-pushes-back.md)).
 
 A data source is a small plugin that implements `interfaces/source.py`: its `seed_urls`, its `crawl_policy`, `parse(page)` that turns a fetched page into events and links to follow, and `refetch_after(url)` that says when a stored copy is too old.
 
