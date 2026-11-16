@@ -22,14 +22,28 @@ San Francisco: Claudio PRC, DVS1, Lindsey Herbert, Fadi Mohem, Isabel Soto
 
 ## Architecture
 
-The engine (`soundshark/crawler.py`) does all the fetching: a concurrent breadth-first crawl that never fetches a URL twice, paces requests per host, always obeys robots.txt (including `Crawl-delay`), retries timeouts, 429s and 5xx with backoff and `Retry-After`, skips pages that still fail, and returns on its own when there's nothing left to fetch.
+The crawl engine (`services/crawler.py`) does all the fetching: a concurrent breadth-first crawl that never fetches a URL twice and returns on its own when there's nothing left to fetch. Talking to websites is split out into `clients/`: `PoliteHttpClient` paces requests per host and retries timeouts, 429s and 5xx with backoff and `Retry-After`; `RobotsRules` always obeys robots.txt, including `Crawl-delay`.
 
-A data source is a small plugin (`soundshark/sources/base.py`): its `seeds`, its `politeness` settings, `parse(page)` that turns a fetched page into events and links to follow, and `refresh_after(url)` that says when a stored copy is too old.
+A data source is a small plugin that implements `interfaces/source.py`: its `seed_urls`, its `crawl_policy`, `parse(page)` that turns a fetched page into events and links to follow, and `refetch_after(url)` that says when a stored copy is too old.
+
+```
+src/soundshark/
+  models/       data only: Event, Page, ParsedPage, CrawlPolicy, CrawlRun
+  interfaces/   what the engine depends on: Source, PageStore
+  clients/      talking to websites: PoliteHttpClient, RobotsRules
+  services/     the logic: crawler, artist_identity
+  stores/       PageStore implementations: FilePageStore
+  sources/      the demo source and the loader for real ones
+  utils/        URL helpers and logging setup
+```
+
+Logs are structured events (`crawl.started`, `http.retrying`, `page.blocked_by_robots`, `crawl.finished`, ...), each tagged with the source and run id. `-v` adds a line per request and page, `--log-json` prints one JSON object per line.
 
 This repo ships only the interface and a **demo source with fictional data**. Site-specific adapters aren't published: they're loaded at runtime from your own package via `SOUNDSHARK_SOURCES`, a comma-separated list of `module.path:ClassName` (copy `.env.example` to `.env`; it defaults to the demo source).
 
 ```sh
 uv run python -m soundshark        # runs the demo source by default
+uv run python -m soundshark -v     # plus a log line per request and page
 ```
 
 ## Design notes

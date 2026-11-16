@@ -13,8 +13,8 @@ That makes each source a small crawler of its own. Every source would reimplemen
 The engine does all the fetching. A source describes a site instead of crawling it:
 
 - **seed URLs** to start from
-- **`parse(page)`**, which turns one fetched `Page` into `Parsed`: the events found on it and the links worth following
-- **politeness settings** for that site, and how long a fetched page stays fresh
+- **`parse(page)`**, which turns one fetched `Page` into a `ParsedPage`: the events found on it and the links worth following
+- a **crawl policy** for that site (how many requests at once, how far apart, how many retries), and how long a fetched page stays fresh
 
 The engine owns the breadth-first crawl, the queue, workers, rate limits, robots.txt, retries, the raw store and crawl-run records.
 
