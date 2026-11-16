@@ -4,14 +4,12 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from soundshark.models import Event
-from soundshark.pages import Page, Parsed
-from soundshark.sources.base import Politeness
+from soundshark.models import CrawlPolicy, Event, Page, ParsedPage
 
-BASE = "https://demo.soundshark.test"
-_TZ = ZoneInfo("Europe/Berlin")
+DEMO_SITE_URL = "https://demo.soundshark.test"
+_DEMO_TIMEZONE = ZoneInfo("Europe/Berlin")
 
-_EVENTS = {
+_DEMO_EVENTS_BY_MONTH = {
     "2026-03": [
         {
             "id": "d1",
@@ -49,42 +47,47 @@ _EVENTS = {
     ],
 }
 
-_PAGES: dict[str, dict] = {
-    "/": {"links": [f"{BASE}/{month}/" for month in _EVENTS]},
-    **{f"/{month}/": {"links": [f"{BASE}/"], "events": events} for month, events in _EVENTS.items()},
+_DEMO_PAGES_BY_PATH: dict[str, dict] = {
+    "/": {"links": [f"{DEMO_SITE_URL}/{month}/" for month in _DEMO_EVENTS_BY_MONTH]},
+    **{
+        f"/{month}/": {"links": [f"{DEMO_SITE_URL}/"], "events": events}
+        for month, events in _DEMO_EVENTS_BY_MONTH.items()
+    },
 }
 
 
-def _serve(request: httpx.Request) -> httpx.Response:
-    page = _PAGES.get(request.url.path)
-    if page is None:
+def _serve_demo_page(request: httpx.Request) -> httpx.Response:
+    demo_page = _DEMO_PAGES_BY_PATH.get(request.url.path)
+    if demo_page is None:
         return httpx.Response(404)
-    return httpx.Response(200, json=page)
+    return httpx.Response(200, json=demo_page)
 
 
 class DemoSource:
     name = "demo"
-    seeds = (f"{BASE}/",)
+    seed_urls = (f"{DEMO_SITE_URL}/",)
 
-    def __init__(self, min_interval: float = 0.05) -> None:
-        self.politeness = Politeness(min_interval=min_interval, max_in_flight=2)
-        self.transport = httpx.MockTransport(_serve)
+    def __init__(self, seconds_between_requests: float = 0.05) -> None:
+        self.crawl_policy = CrawlPolicy(
+            seconds_between_requests_per_host=seconds_between_requests, max_concurrent_requests_per_host=2
+        )
+        self.http_transport = httpx.MockTransport(_serve_demo_page)
 
-    def parse(self, page: Page) -> Parsed:
-        data = json.loads(page.text)
+    def parse(self, page: Page) -> ParsedPage:
+        demo_page = json.loads(page.text)
         events = [
             Event(
                 source=self.name,
                 source_id=item["id"],
-                starts_at=datetime.strptime(item["starts"], "%Y-%m-%d %H:%M").replace(tzinfo=_TZ),
+                starts_at=datetime.strptime(item["starts"], "%Y-%m-%d %H:%M").replace(tzinfo=_DEMO_TIMEZONE),
                 venue=item["venue"],
                 city=item["city"],
                 rooms=item["rooms"],
                 url=page.url,
             )
-            for item in data.get("events", [])
+            for item in demo_page.get("events", [])
         ]
-        return Parsed(events=events, links=data.get("links", []))
+        return ParsedPage(events=events, links_to_follow=demo_page.get("links", []))
 
-    def refresh_after(self, url: str) -> timedelta | None:
-        return timedelta(days=1) if url == f"{BASE}/" else None
+    def refetch_after(self, url: str) -> timedelta | None:
+        return timedelta(days=1) if url == f"{DEMO_SITE_URL}/" else None

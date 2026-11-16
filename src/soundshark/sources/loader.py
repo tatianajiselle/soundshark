@@ -1,22 +1,24 @@
 import importlib
 import os
 
-from soundshark.sources.base import Source
+from soundshark.interfaces import Source
 
-DEFAULT_SOURCES = "soundshark.sources.demo:DemoSource"
+SOURCES_ENV_VAR = "SOUNDSHARK_SOURCES"
+DEFAULT_SOURCE_SPECS = "soundshark.sources.demo:DemoSource"
 
 
-def load_source(spec: str) -> Source:
-    module_path, sep, class_name = spec.strip().partition(":")
-    if not sep or not module_path or not class_name:
+def load_source_from_spec(spec: str) -> Source:
+    module_path, separator, class_name = spec.strip().partition(":")
+    if not separator or not module_path or not class_name:
         raise ValueError(f"bad source spec {spec!r}; expected 'module.path:ClassName'")
-    cls = getattr(importlib.import_module(module_path), class_name)
-    source = cls()
+    source_class = getattr(importlib.import_module(module_path), class_name)
+    source = source_class()
     if not isinstance(source, Source):
         raise TypeError(f"{spec} doesn't implement the Source interface")
     return source
 
 
-def load_sources(specs: str | None = None) -> list[Source]:
-    specs = specs if specs is not None else os.environ.get("SOUNDSHARK_SOURCES", DEFAULT_SOURCES)
-    return [load_source(s) for s in specs.split(",") if s.strip()]
+def load_configured_sources(specs: str | None = None) -> list[Source]:
+    if specs is None:
+        specs = os.environ.get(SOURCES_ENV_VAR, DEFAULT_SOURCE_SPECS)
+    return [load_source_from_spec(spec) for spec in specs.split(",") if spec.strip()]
