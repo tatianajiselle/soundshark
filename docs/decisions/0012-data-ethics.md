@@ -13,7 +13,7 @@ SoundShark is built on lineups that venues, promoters and listings put together 
 - **Credit and link back.** Every connection links to the original event pages, and sources are credited by name.
 - **No bulk export.** There is no download of the dataset and no raw-data API.
 - **Remove a source on request**, quickly and without argument.
-- **Raw data is never published.** Fetched pages and crawl output stay private: they are ignored by git, a pre-commit hook refuses data files, and CI fails if one is ever tracked.
+- **Raw data is never published.** Fetched pages and crawl output stay private: they are ignored by git, a local pre-commit hook refuses data files, and CI fails if one is ever tracked.
 - **Audio, in v2, is analysed and discarded.** Only derived features are stored, never the audio itself.
 
 ## Consequences
