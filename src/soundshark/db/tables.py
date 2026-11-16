@@ -5,6 +5,7 @@ from sqlalchemy import (
     BigInteger,
     CheckConstraint,
     DateTime,
+    Double,
     ForeignKey,
     Identity,
     Index,
@@ -155,3 +156,29 @@ class CreditRow(TableBase):
     artist_id: Mapped[int] = mapped_column(
         ForeignKey("artists.id", ondelete="CASCADE"), primary_key=True, index=True
     )
+
+
+class ArtistEdgeRow(TableBase):
+    __tablename__ = "artist_edges"
+    __table_args__ = (CheckConstraint("a_id < b_id", name="each_pair_stored_once"),)
+
+    a_id: Mapped[int] = mapped_column(ForeignKey("artists.id", ondelete="CASCADE"), primary_key=True)
+    b_id: Mapped[int] = mapped_column(
+        ForeignKey("artists.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    shared_events: Mapped[int]
+    same_room: Mapped[int]
+    b2b: Mapped[int]
+    first_together: Mapped[datetime]
+    last_together: Mapped[datetime]
+    weight: Mapped[float] = mapped_column(Double)
+
+
+class RelatedArtistRow(TableBase):
+    __tablename__ = "related_artists"
+
+    artist_id: Mapped[int] = mapped_column(ForeignKey("artists.id", ondelete="CASCADE"), primary_key=True)
+    rank: Mapped[int] = mapped_column(primary_key=True)
+    other_id: Mapped[int] = mapped_column(ForeignKey("artists.id", ondelete="CASCADE"))
+    score: Mapped[float] = mapped_column(Double)
+    computed_at: Mapped[datetime]

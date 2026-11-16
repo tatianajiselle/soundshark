@@ -11,7 +11,9 @@ from soundshark.interfaces import PageStore, Source
 from soundshark.models import CrawlResult
 from soundshark.services import crawl
 from soundshark.services.credits import CreditSummary, build_credits
+from soundshark.services.graph_job import GraphSummary, rebuild_artist_graph
 from soundshark.services.ingest import IngestSummary, ingest_stored_pages
+from soundshark.services.related_lookup import ArtistNotFound, RelatedArtists, related_artists
 from soundshark.sources import load_configured_sources
 from soundshark.stores import FilePageStore
 from soundshark.utils import configure_logging
@@ -63,6 +65,29 @@ async def identify_artists(rebuild: bool) -> None:
         await engine.dispose()
 
 
+async def rebuild_graph() -> None:
+    engine = create_database_engine(database_url_from_env())
+    try:
+        print_graph_summary(await rebuild_artist_graph(engine))
+    finally:
+        await engine.dispose()
+
+
+async def show_related(name: str, limit: int) -> int:
+    engine = create_database_engine(database_url_from_env())
+    try:
+        answer = await related_artists(engine, name, limit=limit)
+    finally:
+        await engine.dispose()
+    if isinstance(answer, ArtistNotFound):
+        print(f"No artist called {answer.query!r}.")
+        if answer.did_you_mean:
+            print("Did you mean: " + ", ".join(answer.did_you_mean))
+        return 1
+    print_related(answer)
+    return 0
+
+
 def print_crawl_summary(source_name: str, result: CrawlResult) -> None:
     artists = {artist for event in result.events for artist in event.artists}
     run = result.run
@@ -90,6 +115,34 @@ def print_credit_summary(summary: CreditSummary) -> None:
     )
 
 
+def print_graph_summary(summary: GraphSummary) -> None:
+    print(
+        f"{summary.credits_read} credits  {summary.artists_in_graph} artists  {summary.edges_written} edges  "
+        f"{summary.related_rows_written} related rows  scored in {summary.scoring_seconds}s"
+    )
+
+
+def print_related(answer: RelatedArtists) -> None:
+    artist = answer.artist
+    span = ""
+    if artist.first_night and artist.last_night:
+        span = f", {artist.first_night:%Y-%m} to {artist.last_night:%Y-%m}"
+    computed = f"  (graph computed {answer.computed_at:%Y-%m-%d %H:%M} UTC)" if answer.computed_at else ""
+    print(f"{artist.name}: {artist.nights} nights{span}{computed}\n")
+    if not answer.related:
+        print("No related artists yet. Run `soundshark graph` first.")
+        return
+    name_width = max(len(r.name) for r in answer.related)
+    print(f" #  {'artist':<{name_width}}  nights together  same room  b2b  last together")
+    for r in answer.related:
+        if r.nights_together:
+            last = f"{r.last_together:%Y-%m}" if r.last_together else ""
+            together = f"{r.nights_together:>15}  {r.same_room:>9}  {r.b2b:>3}  {last}"
+        else:
+            together = f"{'':>15}  never on the same bill; connected through others"
+        print(f"{r.rank:>2}  {r.name:<{name_width}}  {together}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     shared = argparse.ArgumentParser(add_help=False)
     shared.add_argument("--store", type=Path, default=DEFAULT_STORE_DIR, help="where fetched pages are kept")
@@ -106,6 +159,10 @@ def build_parser() -> argparse.ArgumentParser:
     identify_command.add_argument(
         "--rebuild", action="store_true", help="forget automatic matches first; manual aliases are kept"
     )
+    commands.add_parser("graph", parents=[shared], help="rebuild artist edges and related artists")
+    related_command = commands.add_parser("related", parents=[shared], help="who is closest to an artist")
+    related_command.add_argument("name", help="the artist, spelled any way")
+    related_command.add_argument("--limit", type=int, default=20)
     return parser
 
 
@@ -117,8 +174,12 @@ def main(argv: list[str] | None = None) -> int:
         asyncio.run(crawl_all_sources(args.store, args.max_pages, args.max_depth))
     elif args.command == "ingest":
         asyncio.run(ingest_all_sources(args.store))
-    else:
+    elif args.command == "identify":
         asyncio.run(identify_artists(args.rebuild))
+    elif args.command == "graph":
+        asyncio.run(rebuild_graph())
+    else:
+        return asyncio.run(show_related(args.name, args.limit))
     return 0
 
 

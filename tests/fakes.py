@@ -9,6 +9,7 @@ import httpx
 
 from soundshark.models import CrawlPolicy, CrawlResult, CrawlRun, Event, Page, ParsedPage, StoredPageVersion
 from soundshark.services import crawl
+from soundshark.sources import DemoSource
 
 FAKE_SITE_URL = "https://site.test"
 
@@ -138,3 +139,11 @@ async def crawl_fake_site(site: FakeSite, source: FakeSource | None = None, **cr
     async with httpx.AsyncClient(transport=httpx.MockTransport(site)) as http_client:
         async with asyncio.timeout(10):
             return await crawl(source or FakeSource(), http_client, **crawl_options)
+
+
+async def crawl_demo_into_memory() -> InMemoryPageStore:
+    source = DemoSource(seconds_between_requests=0)
+    store = InMemoryPageStore()
+    async with httpx.AsyncClient(transport=source.http_transport) as http_client:
+        await crawl(source, http_client, page_store=store)
+    return store
