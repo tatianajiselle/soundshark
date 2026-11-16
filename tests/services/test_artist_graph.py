@@ -44,9 +44,9 @@ def test_b2b_beats_same_room_beats_same_night():
     assert (b2b.b2b, b2b.same_room, b2b.shared_events) == (1, 1, 1)
     assert (same_room.b2b, same_room.same_room) == (0, 1)
     assert (same_night.b2b, same_night.same_room) == (0, 0)
-    assert b2b.weight == pytest.approx(3.0)
-    assert same_room.weight == pytest.approx(2.0)
-    assert same_night.weight == pytest.approx(1.0)
+    assert b2b.weight == pytest.approx(4.0)
+    assert same_room.weight == pytest.approx(3.0)
+    assert same_night.weight == pytest.approx(0.25)
 
 
 def test_a_pair_counts_once_per_night_even_across_rooms():
@@ -59,7 +59,7 @@ def test_a_pair_counts_once_per_night_even_across_rooms():
 def test_busy_artists_are_divided_by_how_often_they_play():
     credits = [credit(1, 10), credit(2, 10)] + [credit(1, event) for event in range(11, 14)]
     [edge] = build_edges(credits, NO_DECAY, NOW)
-    assert edge.weight == pytest.approx(2.0 / math.sqrt(4 * 1))
+    assert edge.weight == pytest.approx(3.0 / math.sqrt(4 * 1))
 
 
 def test_old_nights_count_half_after_the_half_life():

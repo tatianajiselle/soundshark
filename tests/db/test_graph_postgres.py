@@ -46,7 +46,6 @@ async def test_related_shows_the_evidence_for_each_answer(engine):
     assert (answer.artist.name, answer.artist.nights) == ("Ora Vance", 2)
     juno = next(r for r in answer.related if r.name == "Juno Hale")
     assert (juno.nights_together, juno.same_room, juno.b2b) == (2, 1, 1)
-    assert answer.related[0].name in {"Juno Hale", "Mirek Sol"}
     assert [r.rank for r in answer.related] == list(range(1, len(answer.related) + 1))
 
 

@@ -12,10 +12,11 @@
 
 | On the same night they were… | Weight |
 |---|---|
-| b2b (the same lineup slot) | 3 |
-| in the same room | 2 |
-| in different rooms | 1 |
+| b2b (the same lineup slot) | 4 |
+| in the same room | 3 |
+| in different rooms | 0.25 |
 
+- **The room matters most.** At a club with several rooms, the room is the best available stand-in for sound: one room might be mostly techno, another mostly house. A different-room night still counts a little, so a venue's rooms stay loosely connected for paths and scenes. With the first weights tried (3 / 2 / 1), an artist who often played the other room on the same nights could rank near the top of someone's list without ever sharing their room; with these weights, such artists drop out of the top 50.
 - Each night's weight **halves every 3 years** of age; upcoming nights count fully.
 - Each pair's total is divided by √(nights of A × nights of B), so artists who play constantly don't end up related to everyone.
 
@@ -35,5 +36,6 @@
 ## Alternatives considered
 
 - **Count shared nights.** Simple and explainable, but misses two-hop closeness and lets the busiest artists dominate.
+- **Ignore different-room nights entirely (weight 0).** Nearly the same rankings, but splits each venue's rooms into separate graphs.
 - **networkx `pagerank` per artist.** The reference implementation, but rebuilds the matrix on every call: minutes instead of seconds for every re-run.
 - **Store every score.** About 44 million rows for the current archive, almost all of them noise.
