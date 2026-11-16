@@ -10,12 +10,20 @@ dependencies = [
     "python-dotenv>=1.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "respx>=0.21",
+    "ruff>=0.8",
+    "pyright[nodejs]>=1.1.390",
 ]
+lessons = [
+    "beautifulsoup4>=4.12",
+]
+
+[tool.uv]
+default-groups = ["dev", "lessons"]
 
 [build-system]
 requires = ["hatchling"]
@@ -28,3 +36,16 @@ packages = ["src/soundshark"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "ASYNC", "SIM"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+reportUnusedCoroutine = "error"

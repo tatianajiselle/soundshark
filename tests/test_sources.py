@@ -24,7 +24,9 @@ def test_loader_defaults_to_demo(monkeypatch):
 
 
 def test_loader_reads_env(monkeypatch):
-    monkeypatch.setenv("SOUNDSHARK_SOURCES", "soundshark.sources.demo:DemoSource, soundshark.sources.demo:DemoSource")
+    monkeypatch.setenv(
+        "SOUNDSHARK_SOURCES", "soundshark.sources.demo:DemoSource, soundshark.sources.demo:DemoSource"
+    )
     assert len(load_sources()) == 2
 
 

@@ -24,20 +24,25 @@ San Francisco: Claudio PRC, DVS1, Lindsey Herbert, Fadi Mohem, Isabel Soto
 
 The engine is source-agnostic. Every data source is a plugin behind one async interface (`soundshark/sources/base.py`): a `name` and an async generator `events(client)` that yields `Event`s. The engine runs them all concurrently with one shared HTTP client.
 
-This repo ships only the interface and a **demo source with fictional data**. Site-specific adapters aren't published: they're loaded at runtime from your own package via `SOUNDSHARK_SOURCES` (see `.env.example`).
+This repo ships only the interface and a **demo source with fictional data**. Site-specific adapters aren't published: they're loaded at runtime from your own package via `SOUNDSHARK_SOURCES`, a comma-separated list of `module.path:ClassName` (copy `.env.example` to `.env`; it defaults to the demo source).
 
 ```sh
-.venv/bin/python -m soundshark        # runs the demo source by default
+uv run python -m soundshark        # runs the demo source by default
 ```
 
 ## Development
 
+Uses [uv](https://docs.astral.sh/uv/). It installs the right Python and every dependency from the lockfile.
+
 ```sh
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-pytest
+uv sync                 # create .venv and install everything
+uv run pytest           # tests
+uv run ruff check .     # lint
+uv run ruff format .    # format
+uv run pyright          # type check (also catches un-awaited coroutines)
 ```
+
+CI runs the same checks on every push and pull request.
 
 ## Data & ethics
 
