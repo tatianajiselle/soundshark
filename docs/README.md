@@ -43,3 +43,4 @@ A decision is never edited to say something new. If it changes, a new decision r
 | [0012](decisions/0012-data-ethics.md) | Data ethics: show connections, never copies | Accepted |
 | [0013](decisions/0013-layout-and-names.md) | Code is grouped by role, and names say what things do | Accepted |
 | [0014](decisions/0014-structured-logging.md) | Structured logging: named events with context | Accepted |
+| [0015](decisions/0015-crawl-then-ingest.md) | Crawl and ingest are separate steps | Accepted |

@@ -31,8 +31,9 @@ src/soundshark/
   models/       data only: Event, Page, ParsedPage, CrawlPolicy, CrawlRun
   interfaces/   what the engine depends on: Source, PageStore
   clients/      talking to websites: PoliteHttpClient, RobotsRules
-  services/     the logic: crawler, artist_identity
+  services/     the logic: crawler, ingest, artist_identity
   stores/       PageStore implementations: FilePageStore
+  db/           Postgres tables and connections (migrations live in migrations/)
   sources/      the demo source and the loader for real ones
   utils/        URL helpers and logging setup
 ```
@@ -41,10 +42,16 @@ Logs are structured events (`crawl.started`, `http.retrying`, `page.blocked_by_r
 
 This repo ships only the interface and a **demo source with fictional data**. Site-specific adapters aren't published: they're loaded at runtime from your own package via `SOUNDSHARK_SOURCES`, a comma-separated list of `module.path:ClassName` (copy `.env.example` to `.env`; it defaults to the demo source).
 
+Crawling and loading the database are separate steps. `crawl` saves every fetched page under `data/` (ignored by git); `ingest` parses the saved pages again and upserts them into Postgres, so a parser fix never needs a re-crawl, and running `ingest` twice gives the same database.
+
 ```sh
-uv run python -m soundshark        # runs the demo source by default
-uv run python -m soundshark -v     # plus a log line per request and page
+uv run python -m soundshark crawl        # fetch pages into data/ (demo source by default)
+uv run python -m soundshark crawl -v     # plus a log line per request and page
+uv run alembic upgrade head              # create or update the tables in DATABASE_URL
+uv run python -m soundshark ingest       # parse data/ into Postgres
 ```
+
+The schema has four layers (provenance, source facts, identity, derived): see [decision 0007](docs/decisions/0007-four-layer-schema.md).
 
 ## Design notes
 
@@ -61,6 +68,8 @@ uv run ruff check .     # lint
 uv run ruff format .    # format
 uv run pyright          # type check (also catches un-awaited coroutines)
 ```
+
+Postgres tests run against `TEST_DATABASE_URL` (a throwaway database or Neon branch: they drop and recreate every table) and are skipped when it isn't set, as in CI. `DATABASE_URL` is a direct connection for migrations and jobs; `DATABASE_URL_POOLED` is for the API later.
 
 CI runs the same checks on every push and pull request.
 
