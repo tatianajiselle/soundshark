@@ -22,7 +22,7 @@ San Francisco: Claudio PRC, DVS1, Lindsey Herbert, Fadi Mohem, Isabel Soto
 
 ## Architecture
 
-The crawl engine (`services/crawler.py`) does all the fetching: a concurrent breadth-first crawl that never fetches a URL twice and returns on its own when there's nothing left to fetch. Talking to websites is split out into `clients/`: `PoliteHttpClient` paces requests per host and retries timeouts, 429s and 5xx with backoff and `Retry-After`; `RobotsRules` always obeys robots.txt, including `Crawl-delay`.
+The crawl engine (`services/crawler.py`) does all the fetching: a concurrent breadth-first crawl that never fetches a URL twice and returns on its own when there's nothing left to fetch. Talking to websites is split out into `clients/`: `PoliteHttpClient` paces requests per host and retries timeouts, 429s and 5xx with backoff and `Retry-After`; `RobotsRules` always obeys robots.txt, including `Crawl-delay`. A 401, 403 or 451, or five failures in a row, stops the whole crawl ([decision 0017](docs/decisions/0017-stop-when-a-site-pushes-back.md)).
 
 A data source is a small plugin that implements `interfaces/source.py`: its `seed_urls`, its `crawl_policy`, `parse(page)` that turns a fetched page into events and links to follow, and `refetch_after(url)` that says when a stored copy is too old.
 
@@ -45,12 +45,12 @@ This repo ships only the interface and a **demo source with fictional data**. Si
 Crawling, loading and matching are separate steps. `crawl` saves every fetched page under `data/` (ignored by git), keeping each version of a page that changes. `ingest` parses the saved pages again and upserts what the sources said into Postgres. `identify` matches every lineup slot to artists. A parser fix never needs a re-crawl, a matching fix never needs a re-ingest, and running any step twice gives the same database.
 
 ```sh
-uv run python -m soundshark crawl              # fetch pages into data/ (demo source by default)
-uv run python -m soundshark crawl -v           # plus a log line per request and page
-uv run alembic upgrade head                    # create or update the tables in DATABASE_URL
-uv run python -m soundshark ingest             # data/ into Postgres
-uv run python -m soundshark identify           # credit new lineup slots to artists
-uv run python -m soundshark identify --rebuild # redo all automatic matching; manual aliases are kept
+uv run soundshark crawl              # fetch pages into data/ (demo source by default)
+uv run soundshark crawl -v           # plus a log line per request and page
+uv run alembic upgrade head          # create or update the tables in DATABASE_URL
+uv run soundshark ingest             # data/ into Postgres
+uv run soundshark identify           # credit new lineup slots to artists
+uv run soundshark identify --rebuild # redo all automatic matching; manual aliases are kept
 ```
 
 The schema has four layers (provenance, source facts, identity, derived): see [decision 0007](docs/decisions/0007-four-layer-schema.md).
