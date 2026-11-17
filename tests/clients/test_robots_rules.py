@@ -55,3 +55,21 @@ async def test_crawl_delay_slows_down_later_requests():
         await polite.get(fake_url("B"))
     first, second = site.page_request_times
     assert second - first >= 0.95
+
+
+async def test_robots_txt_redirected_off_the_host_disallows_everything():
+    site = FakeSite(
+        {},
+        robots_txt=lambda: httpx.Response(
+            301, headers={"Location": "https://elsewhere.example.org/robots.txt"}
+        ),
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(site)) as http_client:
+        robots, _ = robots_for(site, http_client)
+        assert not await robots.is_allowed(fake_url("A"))
+    assert site.requested_urls == [fake_url("robots.txt")]
+
+
+async def test_oversized_robots_txt_disallows_everything():
+    site = FakeSite({}, robots_txt="User-agent: *\nAllow: /\n" + "#" * 2000)
+    assert await allowed_pages(site, "ABC", max_response_bytes=1000) == set()

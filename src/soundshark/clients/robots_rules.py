@@ -3,7 +3,7 @@ from urllib.robotparser import RobotFileParser
 
 from structlog.typing import FilteringBoundLogger
 
-from soundshark.clients.polite_http_client import PoliteHttpClient
+from soundshark.clients.polite_http_client import PoliteHttpClient, ResponseTooLarge
 from soundshark.utils import origin_of
 
 _DISALLOW_EVERYTHING = ["User-agent: *", "Disallow: /"]
@@ -26,9 +26,12 @@ class RobotsRules:
     async def _load_rules(self, origin: str) -> RobotFileParser:
         robots_url = f"{origin}/robots.txt"
         rules = RobotFileParser(robots_url)
-        response = await self._http.get(robots_url)
+        try:
+            response = await self._http.get(robots_url)
+        except ResponseTooLarge:
+            response = None
 
-        if response is None or response.status_code >= 500:
+        if response is None or response.is_redirect or response.status_code >= 500:
             status = None if response is None else response.status_code
             self._log.warning("robots.unreachable", origin=origin, status=status, treating_as="disallow all")
             rules.parse(_DISALLOW_EVERYTHING)

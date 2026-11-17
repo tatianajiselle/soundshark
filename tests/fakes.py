@@ -49,10 +49,13 @@ class FakeSource:
 
 
 class FakeSite:
-    def __init__(self, links_by_page: dict[str, list[str]], robots_txt: str | int = 404) -> None:
+    def __init__(
+        self, links_by_page: dict[str, list[str]], robots_txt: str | int | Callable[[], httpx.Response] = 404
+    ) -> None:
         self.links_by_page = links_by_page
         self.robots_txt = robots_txt
         self.requests_per_path: Counter[str] = Counter()
+        self.requested_urls: list[str] = []
         self.page_request_times: list[float] = []
         self.concurrent_requests = 0
         self.peak_concurrent_requests = 0
@@ -68,6 +71,7 @@ class FakeSite:
     async def __call__(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
         self.requests_per_path[path] += 1
+        self.requested_urls.append(str(request.url))
         if path == "/robots.txt":
             return self._robots_response()
         self.page_request_times.append(asyncio.get_running_loop().time())
@@ -87,6 +91,8 @@ class FakeSite:
     def _robots_response(self) -> httpx.Response:
         if isinstance(self.robots_txt, int):
             return httpx.Response(self.robots_txt)
+        if callable(self.robots_txt):
+            return self.robots_txt()
         return httpx.Response(200, text=self.robots_txt)
 
 
