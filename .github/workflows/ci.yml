@@ -35,3 +35,14 @@ jobs:
 
       - name: Test
         run: uv run pytest -q
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build --tag soundshark:ci .
+
+      - name: The image runs
+        run: docker run --rm soundshark:ci --help

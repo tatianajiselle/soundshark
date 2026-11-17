@@ -1,0 +1,15 @@
+.env
+.env.*
+data/
+lessons/
+.venv/
+.git/
+.github/
+.claude/
+.hypothesis/
+.pytest_cache/
+.ruff_cache/
+**/__pycache__/
+**/.DS_Store
+tests/
+docs/
