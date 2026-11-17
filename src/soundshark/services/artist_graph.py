@@ -20,6 +20,7 @@ class CreditOnBill:
     starts_at: datetime
     room: str
     lineup_slot_id: int
+    venue_id: int = 0
 
 
 @dataclass(slots=True)
@@ -45,19 +46,47 @@ def recency_factor(starts_at: datetime, now: datetime, half_life_years: float) -
     return 0.5 ** (age_years / half_life_years)
 
 
+def room_profile_similarity(a: dict[str, int], b: dict[str, int]) -> float:
+    shared = sum(count * b.get(room, 0) for room, count in a.items())
+    if shared == 0:
+        return 0.0
+    length_a = math.sqrt(sum(count * count for count in a.values()))
+    length_b = math.sqrt(sum(count * count for count in b.values()))
+    return shared / (length_a * length_b)
+
+
 def build_edges(credits: Iterable[CreditOnBill], scoring: GraphScoring, now: datetime) -> list[ArtistEdge]:
     nights: dict[int, dict[int, _ArtistOnNight]] = defaultdict(lambda: defaultdict(_ArtistOnNight))
     starts_at_by_event: dict[int, datetime] = {}
+    venue_by_event: dict[int, int] = {}
     for credit in credits:
         on_night = nights[credit.event_id][credit.artist_id]
         on_night.rooms.add(credit.room)
         on_night.lineup_slot_ids.add(credit.lineup_slot_id)
         starts_at_by_event[credit.event_id] = credit.starts_at
+        venue_by_event[credit.event_id] = credit.venue_id
+
+    room_nights: dict[tuple[int, int], dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for event_id, artists in nights.items():
+        for artist_id, on_night in artists.items():
+            for room in on_night.rooms:
+                room_nights[artist_id, venue_by_event[event_id]][room] += 1
+
+    room_fit_cache: dict[tuple[int, int, int], float] = {}
+
+    def room_fit(a_id: int, b_id: int, venue_id: int) -> float:
+        key = (a_id, b_id, venue_id)
+        if key not in room_fit_cache:
+            similarity = room_profile_similarity(room_nights[a_id, venue_id], room_nights[b_id, venue_id])
+            floor = scoring.room_profile_floor
+            room_fit_cache[key] = floor + (1 - floor) * similarity
+        return room_fit_cache[key]
 
     nights_played: dict[int, int] = defaultdict(int)
     edges: dict[tuple[int, int], ArtistEdge] = {}
     for event_id, artists in nights.items():
         starts_at = starts_at_by_event[event_id]
+        venue_id = venue_by_event[event_id]
         recency = recency_factor(starts_at, now, scoring.recency_half_life_years)
         for artist_id in artists:
             nights_played[artist_id] += 1
@@ -74,7 +103,7 @@ def build_edges(credits: Iterable[CreditOnBill], scoring: GraphScoring, now: dat
                 night_weight = scoring.same_room_weight
             else:
                 night_weight = scoring.same_night_weight
-            edge.weight += night_weight * recency
+            edge.weight += night_weight * recency * room_fit(a_id, b_id, venue_id)
             if edge.first_together is None or starts_at < edge.first_together:
                 edge.first_together = starts_at
             if edge.last_together is None or starts_at > edge.last_together:

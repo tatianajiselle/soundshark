@@ -49,11 +49,11 @@ def test_event_seen_on_two_pages_keeps_the_newest_copy():
 
 def test_slugs_are_readable_and_never_collide():
     slugs = choose_new_artist_slugs(
-        ["ora vance", "ora-vance", "säule fan", "!!!"], slugs_already_taken={"juno-hale"}
+        ["ora vance", "ora-vance", "möwe fan", "!!!"], slugs_already_taken={"juno-hale"}
     )
     assert slugs["ora vance"] == "ora-vance"
     assert slugs["ora-vance"].startswith("ora-vance-")
-    assert slugs["säule fan"] == "saule-fan"
+    assert slugs["möwe fan"] == "mowe-fan"
     assert slugs["!!!"].startswith("x-")
     assert len(set(slugs.values())) == 4
 
@@ -63,4 +63,4 @@ def test_slug_already_in_the_database_gets_a_suffix():
 
 
 def test_slugify():
-    assert slugify("Säule Fan (live)") == "saule-fan-live"
+    assert slugify("Möwe Fan (live)") == "mowe-fan-live"
