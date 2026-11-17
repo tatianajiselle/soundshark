@@ -9,7 +9,13 @@ from pathlib import Path
 import httpx
 from dotenv import find_dotenv, load_dotenv
 
-from soundshark.db import create_database_engine, database_url_from_env
+from soundshark.db import MIGRATIONS_URL_ENV_VAR, create_database_engine, database_url_from_env
+from soundshark.db.roles import (
+    DEFAULT_JOBS_ROLE,
+    create_or_rotate_jobs_role,
+    url_for_role,
+    write_env_value,
+)
 from soundshark.interfaces import PageStore, Source
 from soundshark.models import CrawlResult
 from soundshark.models.graph_scoring import GraphScoring
@@ -100,6 +106,17 @@ async def run_nightly_jobs(store_dir: Path, max_pages: int, max_depth: int | Non
     await ingest_all_sources(store_dir)
     await identify_artists(rebuild=False)
     await rebuild_graph()
+
+
+async def set_up_jobs_role(role: str, env_file: Path, env_var: str) -> None:
+    owner_url = database_url_from_env(MIGRATIONS_URL_ENV_VAR)
+    engine = create_database_engine(owner_url)
+    try:
+        password = await create_or_rotate_jobs_role(engine, role)
+    finally:
+        await engine.dispose()
+    write_env_value(env_file, env_var, url_for_role(owner_url, role, password))
+    print(f"role {role} is ready; {env_var} in {env_file} now connects as it")
 
 
 async def show_related(name: str, limit: int) -> int:
@@ -276,6 +293,14 @@ def build_parser() -> argparse.ArgumentParser:
         parents=[shared, crawl_limits],
         help="crawl, ingest, identify and graph, stopping on the first error",
     )
+    role_command = commands.add_parser(
+        "create-jobs-role",
+        parents=[shared],
+        help=f"create or rotate the limited role the jobs connect as (needs {MIGRATIONS_URL_ENV_VAR})",
+    )
+    role_command.add_argument("--role", default=DEFAULT_JOBS_ROLE)
+    role_command.add_argument("--env-file", type=Path, default=Path(".env"))
+    role_command.add_argument("--env-var", default="DATABASE_URL")
     related_command = commands.add_parser("related", parents=[shared], help="who is closest to an artist")
     related_command.add_argument("name", help="the artist, spelled any way")
     related_command.add_argument("--limit", type=int, default=20)
@@ -324,6 +349,8 @@ def main(argv: list[str] | None = None) -> int:
         asyncio.run(identify_artists(args.rebuild))
     elif args.command == "graph":
         asyncio.run(rebuild_graph())
+    elif args.command == "create-jobs-role":
+        asyncio.run(set_up_jobs_role(args.role, args.env_file, args.env_var))
     elif args.command == "jobs":
         asyncio.run(run_nightly_jobs(args.store, args.max_pages, args.max_depth))
     elif args.command == "evaluate":

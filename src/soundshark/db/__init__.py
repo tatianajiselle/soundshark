@@ -1,4 +1,10 @@
-from soundshark.db.connection import create_database_engine, database_url_from_env, sqlalchemy_url
+from soundshark.db.connection import (
+    MIGRATIONS_URL_ENV_VAR,
+    create_database_engine,
+    database_url_from_env,
+    migrations_database_url,
+    sqlalchemy_url,
+)
 from soundshark.db.tables import (
     ArtistAliasRow,
     ArtistEdgeRow,
@@ -14,6 +20,7 @@ from soundshark.db.tables import (
 )
 
 __all__ = [
+    "MIGRATIONS_URL_ENV_VAR",
     "ArtistAliasRow",
     "ArtistEdgeRow",
     "ArtistRow",
@@ -27,5 +34,6 @@ __all__ = [
     "VenueRow",
     "create_database_engine",
     "database_url_from_env",
+    "migrations_database_url",
     "sqlalchemy_url",
 ]

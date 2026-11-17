@@ -20,7 +20,7 @@ def pytest_collection_modifyitems(items):
         return
     skip = pytest.mark.skip(reason="TEST_DATABASE_URL is not set")
     for item in items:
-        if "tests/db/" in str(item.path) and item.path.name != "test_connection.py":
+        if {"engine", "migrated_test_database"} & set(getattr(item, "fixturenames", ())):
             item.add_marker(skip)
 
 
