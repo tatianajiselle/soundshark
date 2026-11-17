@@ -7,6 +7,7 @@ services:
         required: false
     volumes:
       - pages:/app/data
+      - map:/app/data/map
     command: ["jobs"]
     profiles: ["jobs"]
 
@@ -19,5 +20,26 @@ services:
     command: ["upgrade", "head"]
     profiles: ["jobs"]
 
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    image: soundshark-web:local
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-http://}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    volumes:
+      - map:/srv/map:ro
+    tmpfs:
+      - /data:uid=1000,gid=1000
+      - /config:uid=1000,gid=1000
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    profiles: ["web"]
+
 volumes:
   pages:
+  map:

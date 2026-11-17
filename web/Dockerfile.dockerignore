@@ -1,0 +1,8 @@
+*
+!web/Caddyfile
+!explorer/
+explorer/node_modules/
+explorer/dist/
+explorer/public/map.json
+explorer/test-results/
+explorer/playwright-report/

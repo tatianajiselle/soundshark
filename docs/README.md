@@ -52,6 +52,7 @@ A decision is never edited to say something new. If it changes, a new decision r
 | [0021](decisions/0021-container-image.md) | An engine image here, the deployed image built privately | Accepted |
 | [0022](decisions/0022-limited-database-roles.md) | The jobs connect as a limited role | Accepted |
 | [0023](decisions/0023-crawler-stays-on-host.md) | The crawler stays on the host it was sent to | Accepted |
+| [0027](decisions/0027-web-server.md) | Caddy serves the explorer and the map file | Accepted |
 
 ## Decided but not built yet
 
