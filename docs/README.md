@@ -53,6 +53,7 @@ A decision is never edited to say something new. If it changes, a new decision r
 | [0022](decisions/0022-limited-database-roles.md) | The jobs connect as a limited role | Accepted |
 | [0023](decisions/0023-crawler-stays-on-host.md) | The crawler stays on the host it was sent to | Accepted |
 | [0024](decisions/0024-scenes.md) | Scenes: a consensus of community detection runs over each artist's top 10 | Accepted |
+| [0025](decisions/0025-the-map-file.md) | The map file: one static JSON of derived data | Accepted |
 
 ## Decided but not built yet
 

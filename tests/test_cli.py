@@ -1,4 +1,5 @@
 from datetime import date
+from pathlib import Path
 
 import pytest
 import structlog
@@ -43,6 +44,7 @@ def test_jobs_run_every_step_in_order(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "identify_artists", lambda rebuild: record(f"identify rebuild={rebuild}"))
     monkeypatch.setattr(cli, "rebuild_graph", lambda: record("graph"))
     monkeypatch.setattr(cli, "assign_scenes", lambda settings: record(f"scenes {settings}"))
+    monkeypatch.setattr(cli, "write_map_file", lambda path: record(f"export-map {path}"))
     assert main(["jobs", "--store", str(tmp_path)]) == 0
     assert steps == [
         "crawl",
@@ -50,6 +52,7 @@ def test_jobs_run_every_step_in_order(tmp_path, monkeypatch):
         "identify rebuild=False",
         "graph",
         f"scenes {SceneSettings()}",
+        "export-map data/map/map.json",
     ]
 
 
@@ -67,6 +70,7 @@ def test_jobs_stop_at_the_first_failing_step(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "identify_artists", lambda rebuild: record("identify"))
     monkeypatch.setattr(cli, "rebuild_graph", lambda: record("graph"))
     monkeypatch.setattr(cli, "assign_scenes", lambda settings: record("scenes"))
+    monkeypatch.setattr(cli, "write_map_file", lambda path: record("export-map"))
     with pytest.raises(RuntimeError, match="ingest broke"):
         main(["jobs", "--store", str(tmp_path)])
     assert steps == ["crawl"]
@@ -85,6 +89,18 @@ def test_scenes_options_default_to_the_scene_settings(monkeypatch):
         SceneSettings(),
         SceneSettings(related_per_artist=15, resolution=2.0, min_scene_size=30),
     ]
+
+
+def test_export_map_writes_to_data_map_unless_told_otherwise(monkeypatch):
+    paths: list[Path] = []
+
+    async def record(path: Path) -> None:
+        paths.append(path)
+
+    monkeypatch.setattr(cli, "write_map_file", record)
+    assert main(["export-map"]) == 0
+    assert main(["export-map", "--out", "public/explorer.json"]) == 0
+    assert paths == [Path("data/map/map.json"), Path("public/explorer.json")]
 
 
 def test_a_command_is_required():
