@@ -5,6 +5,7 @@ import structlog
 
 import soundshark.__main__ as cli
 from soundshark.__main__ import build_parser, main
+from soundshark.models.scene_settings import SceneSettings
 
 
 @pytest.fixture(autouse=True)
@@ -41,8 +42,15 @@ def test_jobs_run_every_step_in_order(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "ingest_all_sources", lambda store: record("ingest"))
     monkeypatch.setattr(cli, "identify_artists", lambda rebuild: record(f"identify rebuild={rebuild}"))
     monkeypatch.setattr(cli, "rebuild_graph", lambda: record("graph"))
+    monkeypatch.setattr(cli, "assign_scenes", lambda settings: record(f"scenes {settings}"))
     assert main(["jobs", "--store", str(tmp_path)]) == 0
-    assert steps == ["crawl", "ingest", "identify rebuild=False", "graph"]
+    assert steps == [
+        "crawl",
+        "ingest",
+        "identify rebuild=False",
+        "graph",
+        f"scenes {SceneSettings()}",
+    ]
 
 
 def test_jobs_stop_at_the_first_failing_step(tmp_path, monkeypatch):
@@ -58,9 +66,25 @@ def test_jobs_stop_at_the_first_failing_step(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "ingest_all_sources", fail)
     monkeypatch.setattr(cli, "identify_artists", lambda rebuild: record("identify"))
     monkeypatch.setattr(cli, "rebuild_graph", lambda: record("graph"))
+    monkeypatch.setattr(cli, "assign_scenes", lambda settings: record("scenes"))
     with pytest.raises(RuntimeError, match="ingest broke"):
         main(["jobs", "--store", str(tmp_path)])
     assert steps == ["crawl"]
+
+
+def test_scenes_options_default_to_the_scene_settings(monkeypatch):
+    received: list[SceneSettings] = []
+
+    async def record(settings: SceneSettings) -> None:
+        received.append(settings)
+
+    monkeypatch.setattr(cli, "assign_scenes", record)
+    assert main(["scenes"]) == 0
+    assert main(["scenes", "--top", "15", "--resolution", "2", "--min-size", "30"]) == 0
+    assert received == [
+        SceneSettings(),
+        SceneSettings(related_per_artist=15, resolution=2.0, min_scene_size=30),
+    ]
 
 
 def test_a_command_is_required():

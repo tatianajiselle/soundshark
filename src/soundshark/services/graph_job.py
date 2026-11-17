@@ -1,9 +1,7 @@
 import asyncio
 import time
-from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
-from typing import Any
 
 import structlog
 from sqlalchemy import delete, select
@@ -11,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from structlog.typing import FilteringBoundLogger
 
 from soundshark.db import ArtistEdgeRow, CreditRow, EventRow, LineupSlotRow, RelatedArtistRow
+from soundshark.db.bulk import copy_into
 from soundshark.models.graph_scoring import GraphScoring
 from soundshark.services.artist_graph import CreditOnBill, build_edges, top_related_by_pagerank
 
@@ -65,8 +64,8 @@ async def rebuild_artist_graph(
     async with engine.begin() as connection:
         await connection.execute(delete(RelatedArtistRow))
         await connection.execute(delete(ArtistEdgeRow))
-        await _copy_into(connection, ArtistEdgeRow.__tablename__, EDGE_COLUMNS, edge_records)
-        await _copy_into(connection, RelatedArtistRow.__tablename__, RELATED_COLUMNS, related_records)
+        await copy_into(connection, ArtistEdgeRow.__tablename__, EDGE_COLUMNS, edge_records)
+        await copy_into(connection, RelatedArtistRow.__tablename__, RELATED_COLUMNS, related_records)
     summary.edges_written = len(edge_records)
     summary.related_rows_written = len(related_records)
 
@@ -105,15 +104,3 @@ async def load_credits_on_bills(connection: AsyncConnection) -> list[CreditOnBil
         )
         for artist_id, event_id, starts_at, room, slot_id, venue_id in result.all()
     ]
-
-
-async def _copy_into(
-    connection: AsyncConnection, table: str, columns: Sequence[str], records: list[tuple[Any, ...]]
-) -> None:
-    if not records:
-        return
-    pooled_connection = await connection.get_raw_connection()
-    asyncpg_connection = pooled_connection.driver_connection
-    if asyncpg_connection is None:
-        raise RuntimeError("the database connection was closed before COPY")
-    await asyncpg_connection.copy_records_to_table(table, records=records, columns=list(columns))

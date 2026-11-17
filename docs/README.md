@@ -52,11 +52,11 @@ A decision is never edited to say something new. If it changes, a new decision r
 | [0021](decisions/0021-container-image.md) | An engine image here, the deployed image built privately | Accepted |
 | [0022](decisions/0022-limited-database-roles.md) | The jobs connect as a limited role | Accepted |
 | [0023](decisions/0023-crawler-stays-on-host.md) | The crawler stays on the host it was sent to | Accepted |
+| [0024](decisions/0024-scenes.md) | Scenes: a consensus of community detection runs over each artist's top 10 | Accepted |
 
 ## Decided but not built yet
 
 - **Possibly ambiguous names** ([0008](decisions/0008-artist-identity.md)): very short or very common names should be flagged, to be scoped by city later.
 - **Fuzzy merge suggestions in the database** ([0008](decisions/0008-artist-identity.md)): the scoring exists; the review command, and remembering rejected pairs, don't yet.
 - **Paths between two artists** ([0009](decisions/0009-graph-in-tables.md)): "how are A and B connected?" as a breadth-first search over `artist_edges`.
-- **Scene detection** (roadmap): grouping artists into scenes from the same graph.
 - **Conditional requests** ([0005](decisions/0005-idempotent-incremental-crawls.md)): `If-Modified-Since` for feeds.
