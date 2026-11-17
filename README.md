@@ -31,7 +31,7 @@ src/soundshark/
   models/       data only: Event, Page, ParsedPage, CrawlPolicy, CrawlRun
   interfaces/   what the engine depends on: Source, PageStore
   clients/      talking to websites: PoliteHttpClient, RobotsRules
-  services/     the logic: crawler, ingest, credits, artist_identity, artist_graph, graph_job, related_lookup
+  services/     the logic: crawler, ingest, credits, artist_identity, artist_graph, graph_job, related_lookup, graph_evaluation, ranking_changes, scoring_variants
   stores/       PageStore implementations: FilePageStore
   db/           Postgres tables and connections (migrations live in migrations/)
   sources/      the demo source and the loader for real ones
@@ -53,7 +53,12 @@ uv run soundshark identify            # credit new lineup slots to artists
 uv run soundshark identify --rebuild  # redo all automatic matching; manual aliases are kept
 uv run soundshark graph               # rebuild artist edges and the top 50 related artists
 uv run soundshark related "Ora Vance" # who is closest, and why
+uv run soundshark evaluate            # backtest rankings against later same-room nights
+uv run soundshark evaluate --variant "flat:room_profile_floor=1.0" --cutoff 2025-01-01
+uv run soundshark movers --set room_profile_floor=1.0  # whose top 10 changes most
 ```
+
+`evaluate` and `movers` compare scoring settings before you change the defaults: see [decision 0020](docs/decisions/0020-checking-the-graph.md).
 
 The schema has four layers (provenance, source facts, identity, derived): see [decision 0007](docs/decisions/0007-four-layer-schema.md).
 

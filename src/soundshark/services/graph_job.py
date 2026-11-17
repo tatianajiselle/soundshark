@@ -47,7 +47,7 @@ async def rebuild_artist_graph(
     log.info("graph.started", **asdict(scoring))
 
     async with engine.connect() as connection:
-        credits = await _credits_on_bills(connection)
+        credits = await load_credits_on_bills(connection)
     summary.credits_read = len(credits)
 
     edges = build_edges(credits, scoring, computed_at)
@@ -81,7 +81,7 @@ async def rebuild_artist_graph(
     return summary
 
 
-async def _credits_on_bills(connection: AsyncConnection) -> list[CreditOnBill]:
+async def load_credits_on_bills(connection: AsyncConnection) -> list[CreditOnBill]:
     result = await connection.execute(
         select(
             CreditRow.artist_id,
