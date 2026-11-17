@@ -77,6 +77,17 @@ Postgres tests run against `TEST_DATABASE_URL` (a throwaway database or Neon bra
 
 CI runs the same checks on every push and pull request.
 
+### Docker
+
+```sh
+docker compose --profile jobs build                 # build the engine image
+docker compose --profile jobs run --rm migrate      # create or update the tables
+docker compose --profile jobs run --rm jobs         # crawl, ingest, identify, graph
+docker compose --profile jobs run --rm jobs related "Ora Vance"
+```
+
+Settings come from `.env`, which stays out of the image. Fetched pages are kept in the `pages` volume.
+
 ## Data & ethics
 
 SoundShark only uses data sources whose terms allow it, respects rate limits and robots.txt, and stores audio *features*, never audio.

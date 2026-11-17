@@ -73,6 +73,13 @@ async def rebuild_graph() -> None:
         await engine.dispose()
 
 
+async def run_nightly_jobs(store_dir: Path, max_pages: int, max_depth: int | None) -> None:
+    await crawl_all_sources(store_dir, max_pages, max_depth)
+    await ingest_all_sources(store_dir)
+    await identify_artists(rebuild=False)
+    await rebuild_graph()
+
+
 async def show_related(name: str, limit: int) -> int:
     engine = create_database_engine(database_url_from_env())
     try:
@@ -149,17 +156,24 @@ def build_parser() -> argparse.ArgumentParser:
     shared.add_argument("-v", "--verbose", action="store_true", help="also log every request and page")
     shared.add_argument("--log-json", action="store_true", help="one JSON object per log line")
 
+    crawl_limits = argparse.ArgumentParser(add_help=False)
+    crawl_limits.add_argument("--max-pages", type=int, default=1000)
+    crawl_limits.add_argument("--max-depth", type=int, default=None)
+
     parser = argparse.ArgumentParser(prog="soundshark")
     commands = parser.add_subparsers(dest="command", required=True)
-    crawl_command = commands.add_parser("crawl", parents=[shared], help="fetch pages into the store")
-    crawl_command.add_argument("--max-pages", type=int, default=1000)
-    crawl_command.add_argument("--max-depth", type=int, default=None)
+    commands.add_parser("crawl", parents=[shared, crawl_limits], help="fetch pages into the store")
     commands.add_parser("ingest", parents=[shared], help="parse stored pages into Postgres")
     identify_command = commands.add_parser("identify", parents=[shared], help="match lineup slots to artists")
     identify_command.add_argument(
         "--rebuild", action="store_true", help="forget automatic matches first; manual aliases are kept"
     )
     commands.add_parser("graph", parents=[shared], help="rebuild artist edges and related artists")
+    commands.add_parser(
+        "jobs",
+        parents=[shared, crawl_limits],
+        help="crawl, ingest, identify and graph, stopping on the first error",
+    )
     related_command = commands.add_parser("related", parents=[shared], help="who is closest to an artist")
     related_command.add_argument("name", help="the artist, spelled any way")
     related_command.add_argument("--limit", type=int, default=20)
@@ -178,6 +192,8 @@ def main(argv: list[str] | None = None) -> int:
         asyncio.run(identify_artists(args.rebuild))
     elif args.command == "graph":
         asyncio.run(rebuild_graph())
+    elif args.command == "jobs":
+        asyncio.run(run_nightly_jobs(args.store, args.max_pages, args.max_depth))
     else:
         return asyncio.run(show_related(args.name, args.limit))
     return 0

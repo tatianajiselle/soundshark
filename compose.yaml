@@ -1,0 +1,23 @@
+services:
+  jobs:
+    build: .
+    image: soundshark:local
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - pages:/app/data
+    command: ["jobs"]
+    profiles: ["jobs"]
+
+  migrate:
+    image: soundshark:local
+    env_file:
+      - path: .env
+        required: false
+    entrypoint: ["alembic"]
+    command: ["upgrade", "head"]
+    profiles: ["jobs"]
+
+volumes:
+  pages:
