@@ -17,6 +17,7 @@
 | in different rooms | 0.25 |
 
 - **The room matters most.** At a club with several rooms, the room is the best available stand-in for sound: one room might be mostly techno, another mostly house. A different-room night still counts a little, so a venue's rooms stay loosely connected for paths and scenes. With the first weights tried (3 / 2 / 1), an artist who often played the other room on the same nights could rank near the top of someone's list without ever sharing their room; with these weights, such artists drop out of the top 50.
+- **So does the room each artist usually plays.** Sharing a room on one night says less when one of the pair normally plays a different room. Each artist has a room profile per venue (how many nights they played each room), and a shared night is multiplied by 0.25 + 0.75 × the cosine similarity of the two profiles at that venue. Two regulars of the same room keep the full weight; a one-off crossover from someone who usually plays the other room keeps about half or less. The 0.25 floor keeps such pairs connected, and setting it to 1 turns profiles off.
 - Each night's weight **halves every 3 years** of age; upcoming nights count fully.
 - Each pair's total is divided by √((nights of A + 5) × (nights of B + 5)), so artists who play constantly don't end up related to everyone. The **+5** keeps artists with only one or two nights from looking closer than regulars: without it, a single shared night with a one-off guest outweighs years of nights with a regular.
 
@@ -36,6 +37,7 @@
 ## Alternatives considered
 
 - **Count shared nights.** Simple and explainable, but misses two-hop closeness and lets the busiest artists dominate.
+- **Use only the room of the shared night.** What the first version did. One crossover night counts as much as years in the same room.
 - **Ignore different-room nights entirely (weight 0).** Nearly the same rankings, but splits each venue's rooms into separate graphs.
 - **networkx `pagerank` per artist.** The reference implementation, but rebuilds the matrix on every call: minutes instead of seconds for every re-run.
-- **Store every score.** About 44 million rows for the current archive, almost all of them noise.
+- **Store every score.** One row per pair of artists in the archive, almost all of them noise.

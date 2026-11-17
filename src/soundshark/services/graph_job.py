@@ -83,15 +83,27 @@ async def rebuild_artist_graph(
 
 async def _credits_on_bills(connection: AsyncConnection) -> list[CreditOnBill]:
     result = await connection.execute(
-        select(CreditRow.artist_id, EventRow.id, EventRow.starts_at, LineupSlotRow.room, LineupSlotRow.id)
+        select(
+            CreditRow.artist_id,
+            EventRow.id,
+            EventRow.starts_at,
+            LineupSlotRow.room,
+            LineupSlotRow.id,
+            EventRow.venue_id,
+        )
         .join(LineupSlotRow, LineupSlotRow.id == CreditRow.lineup_slot_id)
         .join(EventRow, EventRow.id == LineupSlotRow.event_id)
     )
     return [
         CreditOnBill(
-            artist_id=artist_id, event_id=event_id, starts_at=starts_at, room=room, lineup_slot_id=slot_id
+            artist_id=artist_id,
+            event_id=event_id,
+            starts_at=starts_at,
+            room=room,
+            lineup_slot_id=slot_id,
+            venue_id=venue_id,
         )
-        for artist_id, event_id, starts_at, room, slot_id in result.all()
+        for artist_id, event_id, starts_at, room, slot_id, venue_id in result.all()
     ]
 
 

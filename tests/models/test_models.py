@@ -6,8 +6,8 @@ from soundshark.models import CrawlRun, Event, Page
 
 
 def test_page_text_decodes_the_body():
-    page = Page(url="https://x.test/", status=200, body="Säule".encode(), fetched_at=datetime.now(UTC))
-    assert page.text == "Säule"
+    page = Page(url="https://x.test/", status=200, body="Möwe".encode(), fetched_at=datetime.now(UTC))
+    assert page.text == "Möwe"
 
 
 def test_page_requires_a_timezone_aware_fetch_time():

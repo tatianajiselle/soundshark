@@ -8,7 +8,7 @@ from soundshark.services import group_by_matching_key, matching_key, split_lineu
 @pytest.mark.parametrize(
     ("a", "b"),
     [
-        ("Säule Fan", "Saule Fan"),
+        ("Möwe Fan", "Mowe Fan"),
         ("ORA VANCE", "ora vance"),
         ("  Mirek   Sol ", "Mirek Sol"),
         ("Tamsin’s Rook", "Tamsin's Rook"),
@@ -76,8 +76,8 @@ def test_split_slot_tags_from_every_act_deduped():
 
 
 def test_group_exact_merges_by_key():
-    groups = group_by_matching_key(["Säule Fan", "saule fan", "Ora Vance", "Säule Fan"])
-    assert groups == {"saule fan": ["Säule Fan", "saule fan"], "ora vance": ["Ora Vance"]}
+    groups = group_by_matching_key(["Möwe Fan", "mowe fan", "Ora Vance", "Möwe Fan"])
+    assert groups == {"mowe fan": ["Möwe Fan", "mowe fan"], "ora vance": ["Ora Vance"]}
 
 
 def test_suggest_merges_alter_egos_are_suggested_not_merged():

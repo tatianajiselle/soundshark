@@ -12,16 +12,25 @@ from soundshark.services.artist_graph import (
     CreditOnBill,
     build_edges,
     recency_factor,
+    room_profile_similarity,
     top_related_by_pagerank,
 )
 
 NOW = datetime(2026, 11, 16, tzinfo=UTC)
-NO_DECAY = GraphScoring(recency_half_life_years=1e9, night_count_padding=0)
+NO_DECAY = GraphScoring(recency_half_life_years=1e9, night_count_padding=0, room_profile_floor=1.0)
 
 
-def credit(artist: int, event: int, room: str = "Main", slot: int | None = None, years_ago: float = 0):
+def credit(
+    artist: int,
+    event: int,
+    room: str = "Main",
+    slot: int | None = None,
+    years_ago: float = 0,
+    venue: int = 1,
+):
     starts_at = NOW - timedelta(days=years_ago * 365.25)
-    return CreditOnBill(artist, event, starts_at, room, slot if slot is not None else artist * 1000 + event)
+    slot_id = slot if slot is not None else artist * 1000 + event
+    return CreditOnBill(artist, event, starts_at, room, slot_id, venue)
 
 
 def edge_between(edges: list[ArtistEdge], a: int, b: int) -> ArtistEdge:
@@ -75,6 +84,39 @@ def test_padding_keeps_one_night_guests_from_outranking_regulars():
 
     assert ranking(padding=0) == [3, 2]
     assert ranking(padding=5) == [2, 3]
+
+
+ROOM_PROFILES = GraphScoring(recency_half_life_years=1e9, night_count_padding=0, room_profile_floor=0.25)
+
+
+def test_room_profile_similarity():
+    assert room_profile_similarity({"Main": 3}, {"Main": 1}) == pytest.approx(1.0)
+    assert room_profile_similarity({"Main": 3}, {"Annex": 2}) == 0.0
+    assert room_profile_similarity({"Main": 1, "Annex": 1}, {"Main": 1}) == pytest.approx(1 / math.sqrt(2))
+
+
+def test_a_shared_room_counts_less_when_one_artist_usually_plays_another_room():
+    main_regular, also_main, usually_annex = 1, 2, 3
+    credits = [credit(main_regular, 10), credit(also_main, 10), credit(usually_annex, 10)]
+    credits += [credit(main_regular, event) for event in range(11, 15)]
+    credits += [credit(also_main, event) for event in range(21, 25)]
+    credits += [credit(usually_annex, event, room="Annex") for event in range(31, 35)]
+
+    edges = build_edges(credits, ROOM_PROFILES, NOW)
+    regular_pair = edge_between(edges, main_regular, also_main)
+    mixed_pair = edge_between(edges, main_regular, usually_annex)
+
+    assert regular_pair.same_room == mixed_pair.same_room == 1
+    assert regular_pair.weight == pytest.approx(3.0 / 5)
+    similarity = 1 / math.sqrt(1 + 4 * 4)
+    assert mixed_pair.weight == pytest.approx(3.0 * (0.25 + 0.75 * similarity) / 5)
+
+
+def test_room_profiles_only_compare_rooms_at_the_venue_of_the_night():
+    credits = [credit(1, 10), credit(2, 10)]
+    credits += [credit(2, event, room="Annex", venue=2) for event in range(11, 15)]
+    [edge] = build_edges(credits, ROOM_PROFILES, NOW)
+    assert edge.weight == pytest.approx(3.0 / math.sqrt(1 * 5))
 
 
 def test_old_nights_count_half_after_the_half_life():
