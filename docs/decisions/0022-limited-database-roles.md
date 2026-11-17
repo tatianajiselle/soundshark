@@ -18,6 +18,8 @@ Until now one connection string did everything: migrations, crawls, ingest and t
   - read-only access to the migration-version table.
 - **No schema changes:** no `CREATE`, `DROP`, `ALTER`, `TRUNCATE` or role management. A test checks each of these is refused.
 - **The role is created in SQL.** Roles made in the hosting console or API are added to the provider's admin group, which is the opposite of limited.
+- **Connections check who they're talking to.** `sslmode=require`, which is what Neon's connection strings say, is treated as `verify-full`: the server's certificate must chain to a trusted root and match the hostname. Plain `require` only encrypts, so anyone in the path could pose as the server and relay a login. The trusted roots come from the system, through Python's default TLS settings, so there is no extra dependency.
+- **The password is sent once, over that checked connection.** Neon refuses a pre-hashed SCRAM verifier in `CREATE ROLE` and `ALTER ROLE`, so the plaintext goes in the statement. SoundShark never logs it.
 - **The server's `.env` holds only the jobs role.** Migrations run at deploy time with the owner string supplied for that one command, so it never sits on the server.
 - **The explorer API will get its own `SELECT`-only role** when it exists.
 
@@ -32,3 +34,5 @@ Until now one connection string did everything: migrations, crawls, ingest and t
 - **Keep using the owner everywhere.** Simplest, but one leak loses the database.
 - **Create the role in the hosting console.** One click, but the role would join the admin group.
 - **Grant `ALL` on the tables.** Shorter, but it includes `TRUNCATE`, `REFERENCES` and `TRIGGER`, which the jobs never need.
+- **Send a SCRAM verifier instead of the password.** Postgres accepts it and the password would never reach the server, but Neon rejects it.
+- **Bundle the trusted roots (`certifi`) or read the OS store (`truststore`).** One more dependency, and not needed: the system roots already work on the laptop and in the image.
