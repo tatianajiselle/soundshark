@@ -49,6 +49,7 @@ A decision is never edited to say something new. If it changes, a new decision r
 | [0018](decisions/0018-relatedness-scoring.md) | Relatedness: weighted nights, personalized PageRank, top 50 | Accepted |
 | [0019](decisions/0019-presents-lines.md) | "X presents Y" credits X | Accepted |
 | [0021](decisions/0021-container-image.md) | An engine image here, the deployed image built privately | Accepted |
+| [0023](decisions/0023-crawler-stays-on-host.md) | The crawler stays on the host it was sent to | Accepted |
 
 ## Decided but not built yet
 

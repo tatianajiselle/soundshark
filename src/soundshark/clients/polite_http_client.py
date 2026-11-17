@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from structlog.typing import FilteringBoundLogger
@@ -13,6 +13,16 @@ from soundshark.models import CrawlPolicy, FetchFailure, Page
 from soundshark.utils import origin_of
 
 RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+DEFAULT_PORTS = {"http": 80, "https": 443}
+_HEADERS_ABOUT_THE_RAW_BODY = frozenset({"content-encoding", "content-length", "transfer-encoding"})
+
+
+class ResponseTooLarge(Exception):
+    def __init__(self, url: str, status: int, max_bytes: int) -> None:
+        super().__init__(f"{url} answered with more than {max_bytes} bytes")
+        self.url = url
+        self.status = status
+        self.max_bytes = max_bytes
 
 
 @dataclass(slots=True)
@@ -50,7 +60,12 @@ class PoliteHttpClient:
         pacer.seconds_between_requests = max(pacer.seconds_between_requests, seconds_between_requests)
 
     async def fetch_page(self, url: str) -> Page | FetchFailure:
-        response = await self.get(url)
+        try:
+            response = await self.get(url)
+        except ResponseTooLarge as error:
+            return FetchFailure(
+                url=url, reason=f"response larger than {error.max_bytes} bytes", status=error.status
+            )
         if response is None:
             return FetchFailure(url=url, reason="no response after retries")
         if not response.is_success:
@@ -106,6 +121,11 @@ class PoliteHttpClient:
         redirects_followed = 0
         while response.is_redirect and redirects_followed < self._policy.max_redirects:
             next_url = urljoin(current_url, response.headers["location"])
+            if not stays_on_host(url, next_url):
+                self._log.warning(
+                    "http.redirect_refused", url=current_url, target=next_url, status=response.status_code
+                )
+                return response
             self._log.debug("http.redirected", url=current_url, to=next_url, status=response.status_code)
             current_url = next_url
             response = await self._send_when_allowed(current_url)
@@ -117,20 +137,52 @@ class PoliteHttpClient:
         async with pacer.concurrency_limit:
             await pacer.wait_for_turn()
             started = time.perf_counter()
-            response = await self._http_client.get(
+            async with self._http_client.stream(
+                "GET",
                 url,
                 headers={"User-Agent": self._policy.user_agent},
                 timeout=self._policy.request_timeout_seconds,
                 follow_redirects=False,
-            )
+            ) as streamed:
+                body = await self._read_body_within_limit(url, streamed)
         self._log.debug(
             "http.response",
             url=url,
-            status=response.status_code,
-            bytes=len(response.content),
+            status=streamed.status_code,
+            bytes=len(body),
             duration_ms=round((time.perf_counter() - started) * 1000),
         )
-        return response
+        return httpx.Response(
+            streamed.status_code,
+            headers=[
+                (name, value)
+                for name, value in streamed.headers.multi_items()
+                if name.lower() not in _HEADERS_ABOUT_THE_RAW_BODY
+            ],
+            content=body,
+            request=streamed.request,
+            default_encoding=streamed.default_encoding,
+        )
+
+    async def _read_body_within_limit(self, url: str, streamed: httpx.Response) -> bytes:
+        max_bytes = self._policy.max_response_bytes
+        declared_bytes = declared_content_length(streamed)
+        if declared_bytes is not None and declared_bytes > max_bytes:
+            self._log.warning(
+                "http.response_too_large", url=url, max_bytes=max_bytes, content_length=declared_bytes
+            )
+            raise ResponseTooLarge(url, streamed.status_code, max_bytes)
+        chunks: list[bytes] = []
+        bytes_read = 0
+        async for chunk in streamed.aiter_bytes():
+            bytes_read += len(chunk)
+            if bytes_read > max_bytes:
+                self._log.warning(
+                    "http.response_too_large", url=url, max_bytes=max_bytes, bytes_read=bytes_read
+                )
+                raise ResponseTooLarge(url, streamed.status_code, max_bytes)
+            chunks.append(chunk)
+        return b"".join(chunks)
 
     def _pacer_for(self, url: str) -> HostPacer:
         origin = origin_of(url)
@@ -144,6 +196,30 @@ class PoliteHttpClient:
     def _backoff_seconds(self, attempt: int) -> float:
         exponential = self._policy.retry_backoff_seconds * 2 ** (attempt - 1)
         return round(exponential * random.uniform(0.5, 1.0), 3)
+
+
+def stays_on_host(requested_url: str, redirect_url: str) -> bool:
+    requested = urlsplit(requested_url)
+    target = urlsplit(redirect_url)
+    if target.scheme not in DEFAULT_PORTS or requested.scheme not in DEFAULT_PORTS:
+        return False
+    if target.scheme != requested.scheme and (requested.scheme, target.scheme) != ("http", "https"):
+        return False
+    if not target.hostname or target.hostname != requested.hostname:
+        return False
+    try:
+        requested_port = requested.port or DEFAULT_PORTS[requested.scheme]
+        target_port = target.port or DEFAULT_PORTS[target.scheme]
+    except ValueError:
+        return False
+    return target_port in (requested_port, DEFAULT_PORTS[target.scheme])
+
+
+def declared_content_length(response: httpx.Response) -> int | None:
+    header = response.headers.get("content-length")
+    if header is None or not header.strip().isdigit():
+        return None
+    return int(header)
 
 
 def retry_after_seconds(response: httpx.Response) -> float | None:
