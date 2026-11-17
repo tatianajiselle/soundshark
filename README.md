@@ -78,7 +78,7 @@ uv run ruff format .    # format
 uv run pyright          # type check (also catches un-awaited coroutines)
 ```
 
-Postgres tests run against `TEST_DATABASE_URL` (a throwaway database or Neon branch: they drop and recreate every table) and are skipped when it isn't set, as in CI. `DATABASE_URL` is a direct connection for migrations and jobs; `DATABASE_URL_POOLED` is for the API later.
+Postgres tests run against `TEST_DATABASE_URL` (a throwaway database or Neon branch: they drop and recreate every table) and are skipped when it isn't set, as in CI. `DATABASE_URL` is the connection the jobs use. In production it's a limited role made with `soundshark create-jobs-role`, which needs the owner's connection in `MIGRATIONS_DATABASE_URL`. Migrations use `MIGRATIONS_DATABASE_URL` when it's set, and `DATABASE_URL` otherwise. `DATABASE_URL_POOLED` is for the API later.
 
 CI runs the same checks on every push and pull request.
 

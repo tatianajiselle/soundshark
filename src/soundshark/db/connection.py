@@ -23,5 +23,12 @@ def database_url_from_env(variable: str = "DATABASE_URL") -> str:
     return url
 
 
+MIGRATIONS_URL_ENV_VAR = "MIGRATIONS_DATABASE_URL"
+
+
+def migrations_database_url() -> str:
+    return os.environ.get(MIGRATIONS_URL_ENV_VAR) or database_url_from_env()
+
+
 def create_database_engine(postgres_url: str) -> AsyncEngine:
     return create_async_engine(sqlalchemy_url(postgres_url), pool_pre_ping=True)

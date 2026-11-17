@@ -4,13 +4,13 @@ from alembic import context
 from dotenv import find_dotenv, load_dotenv
 from sqlalchemy.engine import Connection
 
-from soundshark.db import TableBase, create_database_engine, database_url_from_env, sqlalchemy_url
+from soundshark.db import TableBase, create_database_engine, migrations_database_url, sqlalchemy_url
 
 load_dotenv(find_dotenv(usecwd=True))
 
 
 def _database_url() -> str:
-    return context.config.attributes.get("database_url") or database_url_from_env()
+    return context.config.attributes.get("database_url") or migrations_database_url()
 
 
 def _run_migrations(connection: Connection) -> None:
