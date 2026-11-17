@@ -134,3 +134,8 @@ async def _related(
         for rank, name, score, shared_events, same_room, b2b, last_together, _ in rows
     ]
     return related, rows[0][-1] if rows else None
+
+
+async def artist_names(connection: AsyncConnection) -> dict[int, str]:
+    result = await connection.execute(select(ArtistRow.id, ArtistRow.name))
+    return {artist_id: name for artist_id, name in result.all()}

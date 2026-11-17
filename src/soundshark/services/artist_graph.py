@@ -144,6 +144,20 @@ def top_related_by_pagerank(
     return related
 
 
+def nights_per_artist(credits: Iterable[CreditOnBill]) -> dict[int, int]:
+    nights: dict[int, set[int]] = defaultdict(set)
+    for credit in credits:
+        nights[credit.artist_id].add(credit.event_id)
+    return {artist_id: len(events) for artist_id, events in nights.items()}
+
+
+def related_artist_ids(
+    credits: Iterable[CreditOnBill], scoring: GraphScoring, now: datetime
+) -> dict[int, list[int]]:
+    related = top_related_by_pagerank(build_edges(credits, scoring, now), scoring)
+    return {artist_id: [other_id for other_id, _ in ranked] for artist_id, ranked in related.items()}
+
+
 def _transposed_walk_matrix(edges: Sequence[ArtistEdge], index_of: dict[int, int]) -> sparse.csr_array:
     rows = [index_of[e.a_id] for e in edges] + [index_of[e.b_id] for e in edges]
     columns = [index_of[e.b_id] for e in edges] + [index_of[e.a_id] for e in edges]
