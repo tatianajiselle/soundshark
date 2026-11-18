@@ -2,6 +2,7 @@ import gzip
 import json
 import os
 import tempfile
+import tomllib
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -27,6 +28,7 @@ RELATED_PER_ARTIST = 10
 ALIASES_PER_ARTIST = 10
 SIGNIFICANT_DIGITS = 6
 PUBLISHED_FILE_MODE = 0o644
+SCENE_NAMES_ENV_VAR = "SOUNDSHARK_SCENE_NAMES"
 
 
 class MapCredit(TypedDict):
@@ -101,11 +103,34 @@ def other_spellings(name: str, display_names: Iterable[str]) -> list[str]:
     return spellings[:ALIASES_PER_ARTIST]
 
 
+def load_scene_names(path: Path) -> dict[int, str]:
+    table = tomllib.loads(path.read_text(encoding="utf-8")).get("names", {})
+    if not isinstance(table, dict):
+        raise ValueError(f"{path}: [names] must be a table of scene id = name")
+    names: dict[int, str] = {}
+    for key, name in table.items():
+        if not key.isdigit() or not isinstance(name, str) or not name.strip():
+            raise ValueError(f"{path}: {key!r} = {name!r} must be a scene id and a non-empty name")
+        names[int(key)] = name.strip()
+    return names
+
+
+def scene_names_from_env() -> dict[int, str]:
+    path = os.environ.get(SCENE_NAMES_ENV_VAR, "").strip()
+    return load_scene_names(Path(path)) if path else {}
+
+
 def rounded_score(score: float) -> float:
     return float(f"{score:.{SIGNIFICANT_DIGITS}g}")
 
 
-def build_map(rows: MapRows, credits: Sequence[MapCredit], generated_at: datetime) -> MapFile:
+def build_map(
+    rows: MapRows,
+    credits: Sequence[MapCredit],
+    generated_at: datetime,
+    scene_names: Mapping[int, str] | None = None,
+) -> MapFile:
+    names = scene_names or {}
     top_related = sorted(
         (artist_id, rank, other_id, score)
         for artist_id, rank, other_id, score in rows.related
@@ -125,7 +150,7 @@ def build_map(rows: MapRows, credits: Sequence[MapCredit], generated_at: datetim
         for artist_id in artist_ids
     ]
     scenes = [
-        MapScene(id=scene_id, label=label, size=size)
+        MapScene(id=scene_id, label=names.get(scene_id, label), size=size)
         for scene_id, label, size in sorted(rows.scenes, key=lambda scene: (-scene[2], scene[0]))
     ]
     return MapFile(
@@ -207,11 +232,12 @@ async def export_map(
     path: Path = DEFAULT_MAP_PATH,
     *,
     now: datetime | None = None,
+    scene_names: Mapping[int, str] | None = None,
 ) -> MapSummary:
     credits = source_credits(sources)
     async with engine.connect() as connection:
         rows = await load_map_rows(connection)
-    payload = build_map(rows, credits, now or datetime.now(UTC))
+    payload = build_map(rows, credits, now or datetime.now(UTC), scene_names)
     path, gzip_path = write_map(payload, path)
     summary = MapSummary(
         path=path,

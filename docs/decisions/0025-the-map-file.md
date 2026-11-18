@@ -39,6 +39,8 @@ That file is published on a website, so anyone can download it. [0012](0012-data
 
 The payload is built from plain rows (`services/map_export.py`) and tested without a database; a database test exports from a real build and checks the contract.
 
+Scene labels can be replaced by hand-written names from a TOML file (`SOUNDSHARK_SCENE_NAMES`, a `[names]` table of scene id = name). The names are an editor's reading of the data, so they live with the deployment, not in this repo. Scene ids are kept across runs ([0024](0024-scenes.md)), so a name stays on its scene until that scene splits, merges or disappears.
+
 ## Consequences
 
 - The explorer's map is one static download, cacheable, with no API call.
