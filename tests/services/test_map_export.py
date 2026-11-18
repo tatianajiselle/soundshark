@@ -156,3 +156,38 @@ def test_a_failed_write_leaves_the_old_files_and_no_temporary_ones(tmp_path, mon
         write_map(build_map(sample_rows(nights={}), CREDITS, GENERATED_AT), path)
     assert (path.read_bytes(), gzip_path.read_bytes()) == before
     assert sorted(p.name for p in tmp_path.iterdir()) == ["map.json", "map.json.gz"]
+
+
+def test_scene_names_replace_the_labels_of_the_scenes_they_name():
+    rows = sample_rows()
+    named, *unnamed = sorted(rows.scenes, key=lambda scene: scene[0])
+    scenes = build_map(rows, CREDITS, GENERATED_AT, {named[0]: "Night Drive", 999: "Gone"})["scenes"]
+    labels = {scene["id"]: scene["label"] for scene in scenes}
+    assert labels[named[0]] == "Night Drive"
+    assert all(labels[scene_id] == label for scene_id, label, _ in unnamed)
+    assert 999 not in labels
+
+
+def test_scene_names_load_from_toml(tmp_path):
+    names_file = tmp_path / "scene_names.toml"
+    names_file.write_text('[names]\n3 = " Night Drive "\n12 = "Slow Burn"\n', encoding="utf-8")
+    assert map_export.load_scene_names(names_file) == {3: "Night Drive", 12: "Slow Burn"}
+
+
+@pytest.mark.parametrize(
+    "body", ['[names]\nthree = "Night Drive"', '[names]\n3 = ""', "[names]\n3 = 7", 'names = "x"']
+)
+def test_bad_scene_names_are_refused(tmp_path, body):
+    names_file = tmp_path / "scene_names.toml"
+    names_file.write_text(body, encoding="utf-8")
+    with pytest.raises(ValueError):
+        map_export.load_scene_names(names_file)
+
+
+def test_scene_names_come_from_the_environment(tmp_path, monkeypatch):
+    monkeypatch.delenv(map_export.SCENE_NAMES_ENV_VAR, raising=False)
+    assert map_export.scene_names_from_env() == {}
+    names_file = tmp_path / "scene_names.toml"
+    names_file.write_text('[names]\n5 = "Slow Burn"\n', encoding="utf-8")
+    monkeypatch.setenv(map_export.SCENE_NAMES_ENV_VAR, str(names_file))
+    assert map_export.scene_names_from_env() == {5: "Slow Burn"}
