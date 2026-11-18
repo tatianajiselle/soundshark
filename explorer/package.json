@@ -17,7 +17,7 @@
     "lint": "eslint . --max-warnings 0 && prettier --check .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "e2e": "node scripts/fake-map.mjs && npm run build && playwright test"
+    "e2e": "node scripts/fake-map.mjs --artists 800 && npm run build && playwright test"
   },
   "dependencies": {
     "@cosmograph/react": "2.5.1",
