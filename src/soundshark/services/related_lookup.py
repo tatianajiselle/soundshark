@@ -139,3 +139,12 @@ async def _related(
 async def artist_names(connection: AsyncConnection) -> dict[int, str]:
     result = await connection.execute(select(ArtistRow.id, ArtistRow.name))
     return {artist_id: name for artist_id, name in result.all()}
+
+
+async def artist_nights(connection: AsyncConnection) -> dict[int, int]:
+    result = await connection.execute(
+        select(CreditRow.artist_id, func.count(func.distinct(LineupSlotRow.event_id)))
+        .join(LineupSlotRow, LineupSlotRow.id == CreditRow.lineup_slot_id)
+        .group_by(CreditRow.artist_id)
+    )
+    return {artist_id: nights for artist_id, nights in result.all()}

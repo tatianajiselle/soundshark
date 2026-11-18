@@ -19,12 +19,14 @@ from soundshark.db.roles import (
 from soundshark.interfaces import PageStore, Source
 from soundshark.models import CrawlResult
 from soundshark.models.graph_scoring import GraphScoring
+from soundshark.models.scene_settings import SceneSettings
 from soundshark.services import crawl
 from soundshark.services.artist_graph import nights_per_artist, related_artist_ids
 from soundshark.services.credits import CreditSummary, build_credits
 from soundshark.services.graph_evaluation import Backtest, backtest
 from soundshark.services.graph_job import GraphSummary, load_credits_on_bills, rebuild_artist_graph
 from soundshark.services.ingest import IngestSummary, ingest_stored_pages
+from soundshark.services.map_export import DEFAULT_MAP_PATH, MapSummary, export_map
 from soundshark.services.ranking_changes import RankingChange, ranking_changes
 from soundshark.services.related_lookup import (
     ArtistNotFound,
@@ -32,6 +34,7 @@ from soundshark.services.related_lookup import (
     artist_names,
     related_artists,
 )
+from soundshark.services.scene_job import SceneSummary, rebuild_scenes
 from soundshark.services.scoring_variants import (
     ScoringSpecError,
     ScoringVariant,
@@ -101,11 +104,30 @@ async def rebuild_graph() -> None:
         await engine.dispose()
 
 
+async def assign_scenes(settings: SceneSettings) -> None:
+    engine = create_database_engine(database_url_from_env())
+    try:
+        print_scene_summary(await rebuild_scenes(engine, settings))
+    finally:
+        await engine.dispose()
+
+
+async def write_map_file(path: Path) -> None:
+    sources = load_configured_sources()
+    engine = create_database_engine(database_url_from_env())
+    try:
+        print_map_summary(await export_map(engine, sources, path))
+    finally:
+        await engine.dispose()
+
+
 async def run_nightly_jobs(store_dir: Path, max_pages: int, max_depth: int | None) -> None:
     await crawl_all_sources(store_dir, max_pages, max_depth)
     await ingest_all_sources(store_dir)
     await identify_artists(rebuild=False)
     await rebuild_graph()
+    await assign_scenes(SceneSettings())
+    await write_map_file(DEFAULT_MAP_PATH)
 
 
 async def set_up_jobs_role(role: str, env_file: Path, env_var: str) -> None:
@@ -200,6 +222,24 @@ def print_graph_summary(summary: GraphSummary) -> None:
     )
 
 
+def print_scene_summary(summary: SceneSummary) -> None:
+    largest = ", ".join(str(size) for size in summary.largest) or "none"
+    print(
+        f"{summary.scenes} scenes  {summary.artists_placed} of {summary.artists_in_graph} artists placed  "
+        f"largest {largest}  ids: {summary.ids_kept} kept, {summary.ids_new} new, "
+        f"{summary.ids_retired} retired  clustered in {summary.clustering_seconds}s"
+    )
+
+
+def print_map_summary(summary: MapSummary) -> None:
+    print(
+        f"{summary.artists} artists  {summary.scenes} scenes  {summary.related} related  "
+        f"{summary.credits} source{'' if summary.credits == 1 else 's'} credited\n"
+        f"wrote {summary.path} ({summary.bytes_written:,} bytes) "
+        f"and {summary.gzip_path} ({summary.gzip_bytes_written:,} bytes)"
+    )
+
+
 def print_related(answer: RelatedArtists) -> None:
     artist = answer.artist
     span = ""
@@ -288,10 +328,27 @@ def build_parser() -> argparse.ArgumentParser:
         "--rebuild", action="store_true", help="forget automatic matches first; manual aliases are kept"
     )
     commands.add_parser("graph", parents=[shared], help="rebuild artist edges and related artists")
+    defaults = SceneSettings()
+    scenes_command = commands.add_parser(
+        "scenes", parents=[shared], help="group artists into scenes from their related artists"
+    )
+    scenes_command.add_argument(
+        "--top", type=int, default=defaults.related_per_artist, help="related artists per artist to use"
+    )
+    scenes_command.add_argument(
+        "--resolution", type=float, default=defaults.resolution, help="higher means smaller scenes"
+    )
+    scenes_command.add_argument(
+        "--min-size", type=int, default=defaults.min_scene_size, help="smaller groups get no scene"
+    )
+    map_command = commands.add_parser(
+        "export-map", parents=[shared], help="write the public map file the explorer loads"
+    )
+    map_command.add_argument("--out", type=Path, default=DEFAULT_MAP_PATH, help="also writes OUT.gz")
     commands.add_parser(
         "jobs",
         parents=[shared, crawl_limits],
-        help="crawl, ingest, identify and graph, stopping on the first error",
+        help="crawl, ingest, identify, graph, scenes and export-map, stopping on the first error",
     )
     role_command = commands.add_parser(
         "create-jobs-role",
@@ -349,6 +406,13 @@ def main(argv: list[str] | None = None) -> int:
         asyncio.run(identify_artists(args.rebuild))
     elif args.command == "graph":
         asyncio.run(rebuild_graph())
+    elif args.command == "scenes":
+        settings = SceneSettings(
+            related_per_artist=args.top, resolution=args.resolution, min_scene_size=args.min_size
+        )
+        asyncio.run(assign_scenes(settings))
+    elif args.command == "export-map":
+        asyncio.run(write_map_file(args.out))
     elif args.command == "create-jobs-role":
         asyncio.run(set_up_jobs_role(args.role, args.env_file, args.env_var))
     elif args.command == "jobs":

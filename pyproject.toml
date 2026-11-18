@@ -9,6 +9,7 @@ dependencies = [
     "alembic>=1.14",
     "asyncpg>=0.30",
     "httpx>=0.27",
+    "networkx>=3.7",
     "numpy>=2.3",
     "python-dotenv>=1.0",
     "rapidfuzz>=3.14.6",
@@ -28,7 +29,6 @@ dev = [
     "ruff>=0.8",
     "pyright[nodejs]>=1.1.390",
     "hypothesis>=6.170.15",
-    "networkx>=3.5",
 ]
 lessons = [
     "beautifulsoup4>=4.12",

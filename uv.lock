@@ -856,6 +856,7 @@ dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "httpx" },
+    { name = "networkx" },
     { name = "numpy" },
     { name = "python-dotenv" },
     { name = "rapidfuzz" },
@@ -867,7 +868,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "hypothesis" },
-    { name = "networkx" },
     { name = "pyright", extra = ["nodejs"] },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -883,6 +883,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.14" },
     { name = "asyncpg", specifier = ">=0.30" },
     { name = "httpx", specifier = ">=0.27" },
+    { name = "networkx", specifier = ">=3.7" },
     { name = "numpy", specifier = ">=2.3" },
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "rapidfuzz", specifier = ">=3.14.6" },
@@ -894,7 +895,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = ">=6.170.15" },
-    { name = "networkx", specifier = ">=3.5" },
     { name = "pyright", extras = ["nodejs"], specifier = ">=1.1.390" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-asyncio", specifier = ">=0.24" },

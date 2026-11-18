@@ -20,7 +20,7 @@ COPY --from=build /opt/venv /opt/venv
 WORKDIR /app
 COPY alembic.ini ./
 COPY migrations ./migrations
-RUN mkdir data && chown soundshark:soundshark data
+RUN mkdir -p data/map && chown -R soundshark:soundshark data
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONUNBUFFERED=1
 USER soundshark
