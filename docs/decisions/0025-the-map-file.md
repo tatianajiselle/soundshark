@@ -44,6 +44,7 @@ Scene labels can be replaced by hand-written names from a TOML file (`SOUNDSHARK
 ## Consequences
 
 - The explorer's map is one static download, cacheable, with no API call.
+- Every export keeps a dated gzipped copy in `data/map-history/` (newest 30), outside the folder the web server reads, so a bad night can be rolled back by copying one back.
 - The map is up to a day old, like everything else ([0009](0009-graph-in-tables.md)).
 - Anything new the map should show has to be argued into the contract first, and checked against [0012](0012-data-ethics.md).
 - A large archive makes a large file. Gzip and the top-10 cut keep it manageable; splitting it into tiles would be a new decision.

@@ -191,3 +191,27 @@ def test_scene_names_come_from_the_environment(tmp_path, monkeypatch):
     names_file.write_text('[names]\n5 = "Slow Burn"\n', encoding="utf-8")
     monkeypatch.setenv(map_export.SCENE_NAMES_ENV_VAR, str(names_file))
     assert map_export.scene_names_from_env() == {5: "Slow Burn"}
+
+
+def test_the_history_folder_sits_next_to_the_map_folder(tmp_path):
+    assert map_export.history_dir_for(tmp_path / "map" / "map.json") == tmp_path / "map-history"
+
+
+def test_archived_maps_are_named_by_time_and_only_the_newest_are_kept(tmp_path):
+    gzip_path = tmp_path / "map.json.gz"
+    history = tmp_path / "map-history"
+    archived = [
+        map_export.archive_map(gzip_path, history, GENERATED_AT + timedelta(days=day), keep=3)
+        for day in range(1, 5)
+        if gzip_path.write_bytes(f"day {day}".encode())
+    ]
+    assert archived[-1].read_bytes() == b"day 4"
+    kept = sorted(path.name for path in history.iterdir())
+    assert len(kept) == 3
+    assert kept[-1] == f"map-{(GENERATED_AT + timedelta(days=4)).astimezone(UTC):%Y%m%dT%H%M%SZ}.json.gz"
+    assert (history / kept[0]).read_bytes() == b"day 2"
+
+
+def test_archiving_keeps_at_least_one(tmp_path):
+    with pytest.raises(ValueError):
+        map_export.archive_map(tmp_path / "map.json.gz", tmp_path / "h", GENERATED_AT, keep=0)

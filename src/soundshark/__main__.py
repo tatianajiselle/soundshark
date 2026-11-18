@@ -26,7 +26,13 @@ from soundshark.services.credits import CreditSummary, build_credits
 from soundshark.services.graph_evaluation import Backtest, backtest
 from soundshark.services.graph_job import GraphSummary, load_credits_on_bills, rebuild_artist_graph
 from soundshark.services.ingest import IngestSummary, ingest_stored_pages
-from soundshark.services.map_export import DEFAULT_MAP_PATH, MapSummary, export_map, scene_names_from_env
+from soundshark.services.map_export import (
+    DEFAULT_MAP_PATH,
+    MapSummary,
+    export_map,
+    history_dir_for,
+    scene_names_from_env,
+)
 from soundshark.services.ranking_changes import RankingChange, ranking_changes
 from soundshark.services.related_lookup import (
     ArtistNotFound,
@@ -117,7 +123,11 @@ async def write_map_file(path: Path) -> None:
     scene_names = scene_names_from_env()
     engine = create_database_engine(database_url_from_env())
     try:
-        print_map_summary(await export_map(engine, sources, path, scene_names=scene_names))
+        print_map_summary(
+            await export_map(
+                engine, sources, path, scene_names=scene_names, history_dir=history_dir_for(path)
+            )
+        )
     finally:
         await engine.dispose()
 
@@ -238,6 +248,7 @@ def print_map_summary(summary: MapSummary) -> None:
         f"{summary.credits} source{'' if summary.credits == 1 else 's'} credited\n"
         f"wrote {summary.path} ({summary.bytes_written:,} bytes) "
         f"and {summary.gzip_path} ({summary.gzip_bytes_written:,} bytes)"
+        + (f"\nkept a copy in {summary.archived_path}" if summary.archived_path else "")
     )
 
 
