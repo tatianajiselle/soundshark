@@ -115,6 +115,15 @@ docker compose --profile jobs run --rm jobs related "Ora Vance"
 
 Settings come from `.env`, which stays out of the image. Fetched pages are kept in the `pages` volume.
 
+### Explorer on localhost
+
+```sh
+docker compose --profile jobs run --rm jobs export-map   # write the map file into the map volume
+docker compose --profile web up --build                  # serve the explorer on http://localhost:8080
+```
+
+The `web` service is Caddy with the built explorer ([0027](docs/decisions/0027-web-server.md)). It serves the map from the `map` volume and nothing else.
+
 ## Data & ethics
 
 SoundShark only uses data sources whose terms allow it, respects rate limits and robots.txt, and stores audio *features*, never audio.

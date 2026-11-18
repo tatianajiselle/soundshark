@@ -55,6 +55,7 @@ A decision is never edited to say something new. If it changes, a new decision r
 | [0024](decisions/0024-scenes.md) | Scenes: a consensus of community detection runs over each artist's top 10 | Accepted |
 | [0025](decisions/0025-the-map-file.md) | The map file: one static JSON of derived data | Accepted |
 | [0026](decisions/0026-the-explorer.md) | The explorer is a static map: one file, drawn in the browser | Accepted |
+| [0027](decisions/0027-web-server.md) | Caddy serves the explorer and the map file | Accepted |
 
 ## Decided but not built yet
 
