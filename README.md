@@ -28,10 +28,10 @@ A data source is a small plugin that implements `interfaces/source.py`: its `see
 
 ```
 src/soundshark/
-  models/       data only: Event, Page, ParsedPage, CrawlPolicy, CrawlRun
+  models/       data only: Event, Page, ParsedPage, CrawlPolicy, CrawlRun, GraphScoring, SceneSettings
   interfaces/   what the engine depends on: Source, PageStore
   clients/      talking to websites: PoliteHttpClient, RobotsRules
-  services/     the logic: crawler, ingest, credits, artist_identity, artist_graph, graph_job, related_lookup, graph_evaluation, ranking_changes, scoring_variants
+  services/     the logic: crawler, ingest, credits, artist_identity, artist_graph, graph_job, related_lookup, scenes, scene_job, map_export, graph_evaluation, ranking_changes, scoring_variants
   stores/       PageStore implementations: FilePageStore
   db/           Postgres tables and connections (migrations live in migrations/)
   sources/      the demo source and the loader for real ones
@@ -53,6 +53,8 @@ uv run soundshark identify            # credit new lineup slots to artists
 uv run soundshark identify --rebuild  # redo all automatic matching; manual aliases are kept
 uv run soundshark graph               # rebuild artist edges and the top 50 related artists
 uv run soundshark related "Ora Vance" # who is closest, and why
+uv run soundshark scenes              # group artists into scenes; ids carry over from the last run
+uv run soundshark export-map          # write data/map/map.json and map.json.gz for the explorer
 uv run soundshark evaluate            # backtest rankings against later same-room nights
 uv run soundshark evaluate --variant "flat:room_profile_floor=1.0" --cutoff 2025-01-01
 uv run soundshark movers --set room_profile_floor=1.0  # whose top 10 changes most
@@ -60,7 +62,27 @@ uv run soundshark movers --set room_profile_floor=1.0  # whose top 10 changes mo
 
 `evaluate` and `movers` compare scoring settings before you change the defaults: see [decision 0020](docs/decisions/0020-checking-the-graph.md).
 
+`scenes` clusters each artist's top 10 related artists into scenes, labelled by their three most-booked members, and keeps last night's scene ids where the members mostly match ([decision 0024](docs/decisions/0024-scenes.md)). `export-map` writes the public map file: artists, scenes and scores only, never dates, rooms, venues or lineups ([decision 0025](docs/decisions/0025-the-map-file.md)). `--out` picks another path.
+
 The schema has four layers (provenance, source facts, identity, derived): see [decision 0007](docs/decisions/0007-four-layer-schema.md).
+
+## Explorer
+
+`explorer/` is a static web app that draws the related-artists graph from one file, `map.json`: the whole map coloured by scene, an artist's neighbourhood up to three hops, and the shortest path between two artists ([decision 0026](docs/decisions/0026-the-explorer.md)). It needs Node 22.
+
+```sh
+cd explorer
+npm ci
+npm run fake-map    # write an invented map to public/map.json (--artists 30000 for a big one)
+npm run dev         # http://localhost:5173
+npm run build       # the app in dist/, served with map.json next to it
+npm run typecheck && npm run lint && npm test
+npm run e2e         # build, then Playwright in headless Chromium
+```
+
+The fake map is made-up names with planted scenes; a real `map.json` is never committed. In production the built app is served at `/` and the engine's `map.json` at `/map.json`. The page loads nothing from other hosts. It needs this Content-Security-Policy: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`.
+
+The graph is drawn with [Cosmograph](https://cosmograph.app/), which is licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) (free for non-commercial use, with credit). The rest of the explorer is MIT, like the engine.
 
 ## Design notes
 
@@ -87,7 +109,7 @@ CI runs the same checks on every push and pull request.
 ```sh
 docker compose --profile jobs build                 # build the engine image
 docker compose --profile jobs run --rm migrate      # create or update the tables
-docker compose --profile jobs run --rm jobs         # crawl, ingest, identify, graph
+docker compose --profile jobs run --rm jobs         # crawl, ingest, identify, graph, scenes, export-map
 docker compose --profile jobs run --rm jobs related "Ora Vance"
 ```
 

@@ -67,7 +67,7 @@ async def test_migrations_create_every_table_and_search_extensions(engine):
     async with engine.connect() as connection:
         version = (await connection.execute(text("select version_num from alembic_version"))).scalar_one()
         extensions = (await connection.execute(text("select extname from pg_extension"))).scalars().all()
-    assert version == "0002"
+    assert version == "0003"
     assert {"unaccent", "pg_trgm"} <= set(extensions)
     async with engine.connect() as connection:
         tables = (

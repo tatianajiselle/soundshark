@@ -1,3 +1,4 @@
+import asyncio
 import secrets
 import stat
 
@@ -5,7 +6,7 @@ import pytest
 from sqlalchemy import insert, select, text
 from sqlalchemy.exc import DBAPIError
 
-from soundshark.db import VenueRow, create_database_engine
+from soundshark.db import ArtistSceneRow, SceneRow, VenueRow, create_database_engine
 from soundshark.db.roles import (
     check_role_name,
     create_or_rotate_jobs_role,
@@ -13,7 +14,11 @@ from soundshark.db.roles import (
     url_for_role,
     write_env_value,
 )
-from tests.db.conftest import TEST_DATABASE_URL
+from soundshark.models.scene_settings import SceneSettings
+from soundshark.services.map_export import export_map
+from soundshark.services.scene_job import rebuild_scenes
+from tests.db.conftest import TEST_DATABASE_URL, run_alembic
+from tests.db.scene_data import insert_planted_graph
 
 OWNER_URL = "postgresql://owner:owner-secret@ep-x.aws.neon.tech:5432/soundshark?sslmode=require"
 
@@ -144,3 +149,33 @@ async def test_rotating_the_password_locks_out_the_old_one(engine, jobs_role):
                 await connection.execute(text("select 1"))
     finally:
         await old_engine.dispose()
+
+
+async def test_tables_added_after_the_role_are_covered_by_default_privileges(engine, tmp_path):
+    role = f"{TEST_ROLE_PREFIX}{secrets.token_hex(4)}"
+    created = False
+    await asyncio.to_thread(run_alembic, "downgrade", "0002")
+    try:
+        async with engine.connect() as connection:
+            assert (await connection.execute(text("select to_regclass('public.scenes')"))).scalar() is None
+        password = await create_or_rotate_jobs_role(engine, role)
+        created = True
+        await asyncio.to_thread(run_alembic, "upgrade", "head")
+        await insert_planted_graph(engine, [20, 20])
+        jobs_engine = create_database_engine(url_for_role(TEST_DATABASE_URL, role, password))
+        try:
+            first = await rebuild_scenes(jobs_engine, SceneSettings(min_scene_size=5, resolution=1.0))
+            again = await rebuild_scenes(jobs_engine, SceneSettings(min_scene_size=5, resolution=1.0))
+            async with jobs_engine.begin() as connection:
+                await connection.execute(text("update scenes set label = 'renamed'"))
+                labels = set((await connection.execute(select(SceneRow.label))).scalars())
+                members = len((await connection.execute(select(ArtistSceneRow.artist_id))).all())
+            summary = await export_map(jobs_engine, [], tmp_path / "map.json")
+        finally:
+            await jobs_engine.dispose()
+        assert (first.scenes, again.ids_kept, labels, members) == (2, 2, {"renamed"}, 40)
+        assert summary.scenes == 2
+    finally:
+        await asyncio.to_thread(run_alembic, "upgrade", "head")
+        if created:
+            await drop_role(engine, role)

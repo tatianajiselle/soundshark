@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Identity,
     Index,
+    Integer,
     MetaData,
     String,
     Text,
@@ -182,3 +183,19 @@ class RelatedArtistRow(TableBase):
     other_id: Mapped[int] = mapped_column(ForeignKey("artists.id", ondelete="CASCADE"))
     score: Mapped[float] = mapped_column(Double)
     computed_at: Mapped[datetime]
+
+
+class SceneRow(TableBase):
+    __tablename__ = "scenes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    label: Mapped[str]
+    size: Mapped[int]
+    computed_at: Mapped[datetime]
+
+
+class ArtistSceneRow(TableBase):
+    __tablename__ = "artist_scenes"
+
+    artist_id: Mapped[int] = mapped_column(ForeignKey("artists.id", ondelete="CASCADE"), primary_key=True)
+    scene_id: Mapped[int] = mapped_column(Integer, ForeignKey("scenes.id", ondelete="CASCADE"), index=True)
