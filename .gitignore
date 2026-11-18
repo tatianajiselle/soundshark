@@ -225,3 +225,11 @@ __marimo__/
 lessons/
 data/
 .DS_Store
+
+explorer/node_modules/
+explorer/dist/
+explorer/index.html
+explorer/public/map.json
+explorer/test-results/
+explorer/playwright-report/
+explorer/blob-report/

@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: No crawled data in the repo
-        run: "! git ls-files | grep -E '(^|/)data/|\\.(html?|gz|csv|tsv|jsonl|ndjson|parquet|db|sqlite3?|warc)$'"
+        run: "! git ls-files | grep -E '(^|/)data/|(^|/)map\\.json$|\\.(html?|gz|csv|tsv|jsonl|ndjson|parquet|db|sqlite3?|warc)$'"
 
       - uses: astral-sh/setup-uv@v6
         with:
@@ -46,3 +46,45 @@ jobs:
 
       - name: The image runs
         run: docker run --rm soundshark:ci --help
+
+  explorer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: explorer
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: explorer/.nvmrc
+          cache: npm
+          cache-dependency-path: explorer/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint and format
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: explorer-playwright-report
+          path: explorer/playwright-report
+          retention-days: 7

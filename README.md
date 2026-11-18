@@ -66,6 +66,24 @@ uv run soundshark movers --set room_profile_floor=1.0  # whose top 10 changes mo
 
 The schema has four layers (provenance, source facts, identity, derived): see [decision 0007](docs/decisions/0007-four-layer-schema.md).
 
+## Explorer
+
+`explorer/` is a static web app that draws the related-artists graph from one file, `map.json`: the whole map coloured by scene, an artist's neighbourhood up to three hops, and the shortest path between two artists ([decision 0026](docs/decisions/0026-the-explorer.md)). It needs Node 22.
+
+```sh
+cd explorer
+npm ci
+npm run fake-map    # write an invented map to public/map.json (--artists 30000 for a big one)
+npm run dev         # http://localhost:5173
+npm run build       # the app in dist/, served with map.json next to it
+npm run typecheck && npm run lint && npm test
+npm run e2e         # build, then Playwright in headless Chromium
+```
+
+The fake map is made-up names with planted scenes; a real `map.json` is never committed. In production the built app is served at `/` and the engine's `map.json` at `/map.json`. The page loads nothing from other hosts. It needs this Content-Security-Policy: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`.
+
+The graph is drawn with [Cosmograph](https://cosmograph.app/), which is licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) (free for non-commercial use, with credit). The rest of the explorer is MIT, like the engine.
+
 ## Design notes
 
 Why SoundShark is built the way it is: [docs/](docs/README.md).

@@ -54,10 +54,11 @@ A decision is never edited to say something new. If it changes, a new decision r
 | [0023](decisions/0023-crawler-stays-on-host.md) | The crawler stays on the host it was sent to | Accepted |
 | [0024](decisions/0024-scenes.md) | Scenes: a consensus of community detection runs over each artist's top 10 | Accepted |
 | [0025](decisions/0025-the-map-file.md) | The map file: one static JSON of derived data | Accepted |
+| [0026](decisions/0026-the-explorer.md) | The explorer is a static map: one file, drawn in the browser | Accepted |
 
 ## Decided but not built yet
 
 - **Possibly ambiguous names** ([0008](decisions/0008-artist-identity.md)): very short or very common names should be flagged, to be scoped by city later.
 - **Fuzzy merge suggestions in the database** ([0008](decisions/0008-artist-identity.md)): the scoring exists; the review command, and remembering rejected pairs, don't yet.
-- **Paths between two artists** ([0009](decisions/0009-graph-in-tables.md)): "how are A and B connected?" as a breadth-first search over `artist_edges`.
+- **Paths between two artists** ([0009](decisions/0009-graph-in-tables.md)): "how are A and B connected?" as a breadth-first search over `artist_edges`. The explorer already does this in the browser over each artist's top 10 ([0026](decisions/0026-the-explorer.md)).
 - **Conditional requests** ([0005](decisions/0005-idempotent-incremental-crawls.md)): `If-Modified-Since` for feeds.
