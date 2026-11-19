@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from structlog.typing import FilteringBoundLogger
 
 from soundshark.db import CrawlRunRow, EventRow, LineupSlotRow, RawPageRow, VenueRow
+from soundshark.db.bulk import is_any_of
 from soundshark.interfaces import PageStore, Source
 from soundshark.models import CrawlRun, Event, Page, StoredPageVersion
 from soundshark.services.artist_identity import split_lineup_slot
@@ -271,7 +272,7 @@ async def _replace_changed_lineups(
     if not changed:
         return 0, 0
 
-    await connection.execute(delete(LineupSlotRow).where(LineupSlotRow.event_id.in_(changed.values())))
+    await connection.execute(delete(LineupSlotRow).where(is_any_of(LineupSlotRow.event_id, changed.values())))
     rows = [
         {
             "event_id": changed[slot.event_source_id],
@@ -302,7 +303,7 @@ async def _stored_lineups(
             LineupSlotRow.raw_text,
             LineupSlotRow.is_b2b,
             LineupSlotRow.tags,
-        ).where(LineupSlotRow.event_id.in_(event_ids.values()))
+        ).where(is_any_of(LineupSlotRow.event_id, event_ids.values()))
     )
     for event_id, room, position, raw_text, is_b2b, tags in result.all():
         stored[source_id_by_event_id[event_id]].add((room, position, raw_text, is_b2b, tuple(tags)))

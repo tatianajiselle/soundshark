@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from structlog.typing import FilteringBoundLogger
 
 from soundshark.db import ArtistAliasRow, ArtistRow, CreditRow, LineupSlotRow
+from soundshark.db.bulk import is_any_of
 from soundshark.services.artist_identity import matching_key, split_lineup_slot
 from soundshark.utils.slugs import slug_with_short_hash, slugify
 
@@ -124,7 +125,7 @@ async def _artist_ids_creating_missing(
 ) -> tuple[dict[str, int], int]:
     known = await connection.execute(
         select(ArtistAliasRow.alias_key, ArtistAliasRow.artist_id).where(
-            ArtistAliasRow.alias_key.in_(display_name_by_key)
+            is_any_of(ArtistAliasRow.alias_key, display_name_by_key)
         )
     )
     artist_id_by_key = {key: artist_id for key, artist_id in known.all()}
@@ -133,7 +134,7 @@ async def _artist_ids_creating_missing(
         return artist_id_by_key, 0
 
     candidate_slugs = {slugify(key) for key in new_keys}
-    taken = await connection.execute(select(ArtistRow.slug).where(ArtistRow.slug.in_(candidate_slugs)))
+    taken = await connection.execute(select(ArtistRow.slug).where(is_any_of(ArtistRow.slug, candidate_slugs)))
     slug_by_key = choose_new_artist_slugs(new_keys, set(taken.scalars().all()))
     created = await connection.execute(
         insert(ArtistRow).returning(ArtistRow.slug, ArtistRow.id),
