@@ -14,7 +14,7 @@ from tests.db.test_graph_postgres import build_demo_graph
 from tests.map_contract import assert_map_contract
 
 NOW = datetime(2031, 3, 4, 5, 6, 7, tzinfo=UTC)
-NOT_PUBLISHED = ("Kelvin Hall", "The Cistern", "Lakeport", "Northvale", "Annex", "Basement", "2026-0", "b2b")
+NOT_PUBLISHED = ("Kelvin Hall", "The Cistern", "Annex", "Basement", "2026-0", "b2b")
 
 
 async def test_the_exported_map_keeps_to_the_contract(engine, tmp_path):
@@ -49,6 +49,8 @@ async def test_the_exported_map_keeps_to_the_contract(engine, tmp_path):
     assert artists[ora]["name"] == "Ora Vance"
     assert artists[ora]["aliases"] == ["Ora V."]
     assert artists[ora]["nights"] == 2
+    assert set(artists[ora]["cities"]) <= {"Lakeport", "Northvale"} and artists[ora]["cities"]
+    assert all(len(set(artist["cities"])) == len(artist["cities"]) for artist in artists.values())
     assert {a: artist["scene"] for a, artist in artists.items() if artist["scene"] is not None} == placed
     assert [scene["size"] for scene in payload["scenes"]] == sorted(
         (scene["size"] for scene in payload["scenes"]), reverse=True

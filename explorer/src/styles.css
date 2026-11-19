@@ -703,3 +703,35 @@ a:hover {
     display: none;
   }
 }
+
+.cities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.city {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.city:hover {
+  color: var(--text);
+}
+
+.city.is-on {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+.city:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}

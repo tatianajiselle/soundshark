@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -12,6 +13,7 @@ from soundshark.db import (
     EventRow,
     LineupSlotRow,
     RelatedArtistRow,
+    VenueRow,
 )
 from soundshark.services.artist_identity import matching_key
 
@@ -148,3 +150,19 @@ async def artist_nights(connection: AsyncConnection) -> dict[int, int]:
         .group_by(CreditRow.artist_id)
     )
     return {artist_id: nights for artist_id, nights in result.all()}
+
+
+async def artist_cities(connection: AsyncConnection) -> dict[int, list[str]]:
+    nights = func.count(func.distinct(LineupSlotRow.event_id))
+    result = await connection.execute(
+        select(CreditRow.artist_id, VenueRow.city, nights)
+        .join(LineupSlotRow, LineupSlotRow.id == CreditRow.lineup_slot_id)
+        .join(EventRow, EventRow.id == LineupSlotRow.event_id)
+        .join(VenueRow, VenueRow.id == EventRow.venue_id)
+        .group_by(CreditRow.artist_id, VenueRow.city)
+        .order_by(CreditRow.artist_id, nights.desc(), VenueRow.city)
+    )
+    cities: dict[int, list[str]] = defaultdict(list)
+    for artist_id, city, _ in result.all():
+        cities[artist_id].append(city)
+    return dict(cities)

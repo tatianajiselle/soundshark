@@ -61,6 +61,26 @@ test.describe("whole map", () => {
     await page.screenshot({ path: join(shotsDir, "desktop-whole-map.png") });
   });
 
+  test("shows one city at a time and keeps it in the link", async ({ page }) => {
+    await page.goto("/");
+    await waitReady(page);
+    const cities = page.getByTestId("cities");
+    await expect(cities.getByRole("radio")).toHaveText(["All", "Lakeport", "Northvale"]);
+    await expect(cities.getByRole("radio", { name: "All" })).toHaveAttribute("aria-checked", "true");
+
+    await cities.getByRole("radio", { name: "Northvale" }).click();
+    await expect(cities.getByRole("radio", { name: "Northvale" })).toHaveAttribute("aria-checked", "true");
+    await expect(page).toHaveURL(/#c=Northvale$/);
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: join(shotsDir, "desktop-one-city.png") });
+
+    await page.reload();
+    await waitReady(page);
+    await expect(cities.getByRole("radio", { name: "Northvale" })).toHaveAttribute("aria-checked", "true");
+    await cities.getByRole("radio", { name: "All" }).click();
+    await expect(page).not.toHaveURL(/#/);
+  });
+
   test("shows the credits from the file and the about text", async ({ page }) => {
     await page.goto("/");
     await waitReady(page);

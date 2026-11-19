@@ -18,18 +18,18 @@ That file is published on a website, so anyone can download it. [0012](0012-data
   "generated_at": "2026-11-17T04:31:00+00:00",
   "credits": [{"name": "Some Source", "url": "https://example.org/"}],
   "scenes": [{"id": 3, "label": "A / B / C", "size": 412}],
-  "artists": [{"id": 17, "name": "Display Name", "aliases": ["Other Spelling"], "nights": 53, "scene": 3}],
+  "artists": [{"id": 17, "name": "Display Name", "aliases": ["Other Spelling"], "nights": 53, "cities": ["Some City"], "scene": 3}],
   "related": [[17, 42, 0.012345]]
 }
 ```
 
-- **`artists`**: every artist with related artists, by id. `aliases` are other display spellings of the name, so search finds them; spellings that differ only in case are dropped, and there are at most 10. The internal matching keys stay out. `nights` is how many nights they played in total, and `scene` is their scene's id or `null`.
+- **`artists`**: every artist with related artists, by id. `aliases` are other display spellings of the name, so search finds them; spellings that differ only in case are dropped, and there are at most 10. The internal matching keys stay out. `nights` is how many nights they played in total, `cities` the cities of the venues they played (most nights first, without counts), and `scene` is their scene's id or `null`. The explorer uses `cities` to show one city at a time.
 - **`related`**: each artist's top 10 as `[artist, other, score]`, ordered by artist then rank. Scores keep 6 significant digits, plenty to rank and draw by. 10, not the stored 50: it's what the map draws, and it keeps the file small.
 - **`scenes`**: every scene, largest first.
 - **`credits`**: one entry per configured source, with its name and the origin of its first seed URL, so the explorer can credit and link back ([0012](0012-data-ethics.md)).
 - **`version`** changes only when a change would break a reader. Adding a field doesn't, but it still changes the contract (below).
 
-**Derived data only.** The file never contains dates of nights, rooms, venues, events, lineups, b2b flags or per-pair night counts. Those are the archive itself; together they would let anyone rebuild the lineups. Names, total nights, scores and scenes say who is close to whom without saying where or when. A test walks the produced JSON and checks the exact keys at every level, so adding a field fails it until someone decides to change the contract.
+**Derived data only.** The file never contains dates of nights, rooms, venues, events, lineups, b2b flags or per-pair night counts. Those are the archive itself; together they would let anyone rebuild the lineups. Names, total nights, cities, scores and scenes say who is close to whom without saying where or when: a city names no venue and no night, and its order only says where an artist played most. A test walks the produced JSON and checks the exact keys at every level, so adding a field fails it until someone decides to change the contract.
 
 **Written so a reader never sees half a file.** The command writes `map.json` and `map.json.gz` (the same bytes, gzipped) to temporary files in the same directory, then moves each into place with an atomic rename. A web server reading while the job writes gets the old file or the new one. The JSON is compact (no spaces) UTF-8 with names as written, not `\u` escapes. The gzip carries no timestamp, so the same data gives the same bytes. The files are readable by everyone (mode 644), since they're meant to be served.
 

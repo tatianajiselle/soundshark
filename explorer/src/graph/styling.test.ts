@@ -58,12 +58,12 @@ describe("styleGraph", () => {
     { id: 2, label: "two", size: 2 },
   ];
   const artists: Artist[] = [
-    { id: 1, name: "a", aliases: [], nights: 1, scene: 1 },
-    { id: 2, name: "b", aliases: [], nights: 1, scene: 1 },
-    { id: 3, name: "c", aliases: [], nights: 1, scene: 1 },
-    { id: 4, name: "d", aliases: [], nights: 1, scene: 2 },
-    { id: 5, name: "e", aliases: [], nights: 1, scene: 2 },
-    { id: 6, name: "f", aliases: [], nights: 1, scene: null },
+    { id: 1, name: "a", aliases: [], nights: 1, cities: [], scene: 1 },
+    { id: 2, name: "b", aliases: [], nights: 1, cities: [], scene: 1 },
+    { id: 3, name: "c", aliases: [], nights: 1, cities: [], scene: 1 },
+    { id: 4, name: "d", aliases: [], nights: 1, cities: [], scene: 2 },
+    { id: 5, name: "e", aliases: [], nights: 1, cities: [], scene: 2 },
+    { id: 6, name: "f", aliases: [], nights: 1, cities: [], scene: null },
   ];
   const related: RelatedRow[] = [
     [1, 2, 1],
@@ -78,7 +78,7 @@ describe("styleGraph", () => {
   const t = THEMES.dark;
 
   it("colours the whole map by scene", () => {
-    const styled = styleGraph(graph, sceneOf, colors, { kind: "map", scene: null }, "dark");
+    const styled = styleGraph(graph, sceneOf, colors, { kind: "map", scene: null, inCity: null }, "dark");
     expect(styled.pointColors[0]).toEqual(hexToRgba(t.scenes[0]));
     expect(styled.pointColors[3]).toEqual(hexToRgba(t.scenes[1]));
     expect(styled.pointColors[5]).toEqual(hexToRgba(t.neutral));
@@ -87,11 +87,20 @@ describe("styleGraph", () => {
   });
 
   it("dims everything outside a highlighted scene", () => {
-    const styled = styleGraph(graph, sceneOf, colors, { kind: "map", scene: 2 }, "dark");
+    const styled = styleGraph(graph, sceneOf, colors, { kind: "map", scene: 2, inCity: null }, "dark");
     expect(styled.pointColors[3]).toEqual(hexToRgba(t.scenes[1]));
     expect(styled.pointColors[0][3]).toBe(t.dimPointAlpha);
     expect(styled.linkColors[3][3]).toBeGreaterThan(t.mapLinkAlpha);
     expect(styled.linkColors[0][3]).toBe(t.dimLinkAlpha);
+  });
+
+  it("dims artists who never played the chosen city", () => {
+    const inCity = Uint8Array.from([1, 1, 1, 0, 0, 0]);
+    const styled = styleGraph(graph, sceneOf, colors, { kind: "map", scene: null, inCity }, "dark");
+    expect(styled.pointColors[0]).toEqual(hexToRgba(t.scenes[0]));
+    expect(styled.pointColors[3][3]).toBe(t.dimPointAlpha);
+    expect(styled.linkColors[0][3]).toBe(t.mapLinkAlpha);
+    expect(styled.linkColors[2][3]).toBe(t.dimLinkAlpha);
   });
 
   it("colours points by hop in focus mode", () => {

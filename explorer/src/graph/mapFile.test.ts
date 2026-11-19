@@ -11,8 +11,8 @@ function validMap(): Record<string, unknown> {
       { id: 5, label: "Brix", size: 1 },
     ],
     artists: [
-      { id: 17, name: "Vela Moss", aliases: ["Véla Möss"], nights: 53, scene: 3 },
-      { id: 42, name: "Orrin Tal", aliases: [], nights: 8, scene: 3 },
+      { id: 17, name: "Vela Moss", aliases: ["Véla Möss"], nights: 53, cities: ["Lakeport", "Northvale"], scene: 3 },
+      { id: 42, name: "Orrin Tal", aliases: [], nights: 8, cities: ["Northvale"], scene: 3 },
       { id: 50, name: "Brix", aliases: [], nights: 1, scene: null },
     ],
     related: [
@@ -42,6 +42,15 @@ describe("parseMapFile", () => {
     expect(map.artists[2].scene).toBeNull();
     expect(map.related[0]).toEqual([17, 42, 0.012345]);
     expect(map.credits[0].name).toBe("Invented Source");
+  });
+
+  it("reads cities, and treats a map without them as having none", () => {
+    const map = parseMapFile(validMap());
+    expect(map.artists[0].cities).toEqual(["Lakeport", "Northvale"]);
+    expect(map.artists[2].cities).toEqual([]);
+    const bad = validMap();
+    (bad.artists as Record<string, unknown>[])[0].cities = [3];
+    expect(errorOf(bad)).toBe("artists[0].cities[0] must be text");
   });
 
   it("rejects something that is not an object", () => {

@@ -132,6 +132,13 @@ function pickNights() {
   return Math.max(1, Math.min(640, Math.round(pareto * 1.8)));
 }
 
+const CITIES = ["Lakeport", "Northvale"];
+
+function citiesOf(artist) {
+  const home = (artist.sceneIndex ?? artist.id) % CITIES.length;
+  return artist.id % 9 === 0 ? [CITIES[home], CITIES[1 - home]] : [CITIES[home]];
+}
+
 const ISLAND_SIZE = 3;
 const artists = [];
 let nextId = 101;
@@ -266,6 +273,7 @@ const map = {
     name: a.name,
     aliases: a.aliases,
     nights: a.nights,
+    cities: citiesOf(a),
     scene: a.sceneIndex === null ? null : sceneIdByIndex[a.sceneIndex],
   })),
   related,
