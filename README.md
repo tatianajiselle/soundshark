@@ -62,7 +62,7 @@ uv run soundshark movers --set room_profile_floor=1.0  # whose top 10 changes mo
 
 `evaluate` and `movers` compare scoring settings before you change the defaults: see [decision 0020](docs/decisions/0020-checking-the-graph.md).
 
-`scenes` clusters each artist's top 10 related artists into scenes, labelled by their three most-booked members, and keeps last night's scene ids where the members mostly match ([decision 0024](docs/decisions/0024-scenes.md)). `export-map` writes the public map file: artists, scenes and scores only, never dates, rooms, venues or lineups ([decision 0025](docs/decisions/0025-the-map-file.md)). `--out` picks another path. To give scenes hand-written names, point `SOUNDSHARK_SCENE_NAMES` at a TOML file with a `[names]` table of scene id = name; scenes it doesn't name keep their artist labels.
+`scenes` clusters each artist's top 10 related artists into scenes, labelled by their three most-booked members, and keeps last night's scene ids where the members mostly match ([decision 0024](docs/decisions/0024-scenes.md)). `export-map` writes the public map file: artists, scenes and scores only, never dates, rooms, venues or lineups ([decision 0025](docs/decisions/0025-the-map-file.md)). `--out` picks another path. To give scenes hand-written names, point `SOUNDSHARK_SCENE_NAMES` at a TOML file with a `[names]` table of scene id = name; scenes it doesn't name keep their artist labels. Each export also keeps a gzipped copy named by its time in a `-history` folder next to the map's folder (`data/map-history/`, newest 30), so an older map can be put back.
 
 The schema has four layers (provenance, source facts, identity, derived): see [decision 0007](docs/decisions/0007-four-layer-schema.md).
 

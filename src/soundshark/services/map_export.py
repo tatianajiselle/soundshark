@@ -1,6 +1,7 @@
 import gzip
 import json
 import os
+import shutil
 import tempfile
 import tomllib
 from collections import defaultdict
@@ -29,6 +30,7 @@ ALIASES_PER_ARTIST = 10
 SIGNIFICANT_DIGITS = 6
 PUBLISHED_FILE_MODE = 0o644
 SCENE_NAMES_ENV_VAR = "SOUNDSHARK_SCENE_NAMES"
+MAP_HISTORY_KEEP = 30
 
 
 class MapCredit(TypedDict):
@@ -79,6 +81,7 @@ class MapSummary:
     credits: int
     bytes_written: int
     gzip_bytes_written: int
+    archived_path: Path | None = None
 
 
 def source_credits(sources: Iterable[Source]) -> list[MapCredit]:
@@ -186,6 +189,23 @@ def write_map(payload: MapFile, path: Path) -> tuple[Path, Path]:
     return path, gzip_path
 
 
+def history_dir_for(path: Path) -> Path:
+    return path.parent.with_name(f"{path.parent.name}-history")
+
+
+def archive_map(
+    gzip_path: Path, history_dir: Path, generated_at: datetime, keep: int = MAP_HISTORY_KEEP
+) -> Path:
+    if keep < 1:
+        raise ValueError("keep at least one archived map")
+    history_dir.mkdir(parents=True, exist_ok=True)
+    archived = history_dir / f"map-{generated_at.astimezone(UTC):%Y%m%dT%H%M%SZ}.json.gz"
+    shutil.copyfile(gzip_path, archived)
+    for old in sorted(history_dir.glob("map-*.json.gz"))[:-keep]:
+        old.unlink()
+    return archived
+
+
 def _stage(path: Path, data: bytes) -> Path:
     with tempfile.NamedTemporaryFile(dir=path.parent, prefix=f".{path.name}.", delete=False) as file:
         temporary = Path(file.name)
@@ -233,12 +253,15 @@ async def export_map(
     *,
     now: datetime | None = None,
     scene_names: Mapping[int, str] | None = None,
+    history_dir: Path | None = None,
 ) -> MapSummary:
     credits = source_credits(sources)
     async with engine.connect() as connection:
         rows = await load_map_rows(connection)
-    payload = build_map(rows, credits, now or datetime.now(UTC), scene_names)
+    generated_at = now or datetime.now(UTC)
+    payload = build_map(rows, credits, generated_at, scene_names)
     path, gzip_path = write_map(payload, path)
+    archived_path = archive_map(gzip_path, history_dir, generated_at) if history_dir else None
     summary = MapSummary(
         path=path,
         gzip_path=gzip_path,
@@ -248,6 +271,7 @@ async def export_map(
         credits=len(credits),
         bytes_written=path.stat().st_size,
         gzip_bytes_written=gzip_path.stat().st_size,
+        archived_path=archived_path,
     )
     log.info(
         "map.exported",
@@ -258,5 +282,6 @@ async def export_map(
         credits=summary.credits,
         bytes_written=summary.bytes_written,
         gzip_bytes_written=summary.gzip_bytes_written,
+        archived_path=str(archived_path) if archived_path else None,
     )
     return summary
