@@ -5,6 +5,7 @@ import { Legend } from "./components/Legend";
 import { MapView, type Camera } from "./components/MapView";
 import { Panel } from "./components/Panel";
 import { SearchBox } from "./components/SearchBox";
+import { ForceView } from "./components/ForceView";
 import { loadExplorer, type Loaded, LoadError } from "./load";
 import { edgesAlong, hopsFrom, shortestPath } from "./graph/graph";
 import { basedIn, inCity } from "./graph/prepare";
@@ -97,6 +98,7 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
   const [url, navigate] = useUrlState();
   const [highlight, setHighlight] = useState<number | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [mode, setMode] = useState<"2d" | "3d">("2d");
   const searchInput = useRef<HTMLInputElement>(null);
 
   const colors = useMemo(() => sceneColors(map.scenes, theme), [map.scenes, theme]);
@@ -188,20 +190,32 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
 
   return (
     <div className={focus === null ? "app" : "app has-panel"} data-theme-mode={theme}>
-      <MapView
-        explorer={explorer}
-        tables={tables}
-        connection={connection}
-        styling={styling}
-        labelsFor={labelsFor}
-        path={view.kind === "path" ? view.path : null}
-        focus={focus}
-        camera={camera}
-        theme={theme}
-        reducedMotion={reducedMotion}
-        onPick={focusOn}
-        onReady={onReady}
-      />
+      {mode === "2d" ? (
+        <MapView
+          explorer={explorer}
+          tables={tables}
+          connection={connection}
+          styling={styling}
+          labelsFor={labelsFor}
+          path={view.kind === "path" ? view.path : null}
+          focus={focus}
+          camera={camera}
+          theme={theme}
+          reducedMotion={reducedMotion}
+          onPick={focusOn}
+          onReady={onReady}
+        />
+      ) : (
+        <ForceView
+          explorer={explorer}
+          colors={colors}
+          theme={theme}
+          focus={focus}
+          reducedMotion={reducedMotion}
+          onPick={focusOn}
+          onReady={onReady}
+        />
+      )}
 
       <header className="topbar">
         <h1 className="brand">
@@ -216,7 +230,16 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
           inputRef={searchInput}
           testId="search"
         />
-        <CityToggle cities={explorer.cities} city={city} onChoose={chooseCity} />
+        {mode === "2d" && <CityToggle cities={explorer.cities} city={city} onChoose={chooseCity} />}
+        <button
+          type="button"
+          className="mode-toggle"
+          data-testid="mode-toggle"
+          aria-pressed={mode === "3d"}
+          onClick={() => setMode(mode === "2d" ? "3d" : "2d")}
+        >
+          3D
+        </button>
         {missing && (
           <p className="notice" role="status">
             That artist isn’t in this map.

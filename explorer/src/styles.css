@@ -735,3 +735,21 @@ a:hover {
   outline: 2px solid var(--text);
   outline-offset: 2px;
 }
+
+.map-3d canvas {
+  display: block;
+}
+
+.mode-toggle {
+  font: inherit;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.mode-toggle[aria-pressed="true"] {
+  background: rgba(127, 127, 127, 0.3);
+}
