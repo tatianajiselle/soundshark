@@ -81,6 +81,24 @@ test.describe("whole map", () => {
     await expect(page).not.toHaveURL(/#/);
   });
 
+  test("switches to the 3D view and back", async ({ page }) => {
+    await page.goto("/");
+    await waitReady(page);
+    const toggle = page.getByTestId("mode-toggle");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("map-3d").locator("canvas")).toBeVisible();
+    await expect(page.getByTestId("cities")).toHaveCount(0);
+    await expect(page.locator("html")).toHaveAttribute("data-layout3d", "settled", { timeout: 20_000 });
+    await page.screenshot({ path: join(shotsDir, "desktop-3d.png") });
+
+    await toggle.click();
+    await expect(page.getByTestId("map-3d")).toHaveCount(0);
+    await expect(page.getByTestId("cities")).toBeVisible();
+  });
+
   test("shows the credits from the file and the about text", async ({ page }) => {
     await page.goto("/");
     await waitReady(page);
