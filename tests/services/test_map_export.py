@@ -31,6 +31,7 @@ def sample_rows(**overrides) -> MapRows:
         "names": names,
         "aliases": {1: ["ora vance", "Ora Vance", "Ora V.", "ORA V.", "Oravance"]},
         "nights": {1: 53, 101: 4},
+        "cities": {1: ["Lakeport", "Northvale"], 101: ["Northvale"]},
         "scene_of": {1: 3, 101: 3, 102: 8},
         "scenes": [(8, "Guest 02 / Guest 03 / Guest 04", 20), (3, "Ora Vance / Guest 01 / Guest 05", 412)],
         "related": related,
@@ -70,8 +71,10 @@ def test_artists_carry_name_spellings_nights_and_scene():
         "name": "Ora Vance",
         "aliases": ["ORA V.", "Oravance"],
         "nights": 53,
+        "cities": ["Lakeport", "Northvale"],
         "scene": 3,
     }
+    assert artists[103]["cities"] == []
     assert artists[103]["scene"] is None
     assert artists[103]["nights"] == 0
     assert 999 not in artists

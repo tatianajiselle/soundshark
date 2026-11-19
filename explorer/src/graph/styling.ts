@@ -101,7 +101,7 @@ export function pointSize(nights: number, maxNights: number): number {
 }
 
 export type View =
-  | { kind: "map"; scene: number | null }
+  | { kind: "map"; scene: number | null; inCity: Uint8Array | null }
   | { kind: "focus"; focus: number; hops: Int8Array }
   | { kind: "path"; focus: number; hops: Int8Array; path: readonly number[]; pathEdges: readonly number[] };
 
@@ -137,14 +137,18 @@ export function styleGraph(
 
   if (view.kind === "map") {
     const highlight = view.scene;
+    const city = view.inCity;
+    const shown = (i: number) => city === null || city[i] === 1;
     for (let i = 0; i < graph.size; i += 1) {
-      pointColors[i] = highlight === null || sceneOf[i] === highlight ? colorOf(i) : dimPoint;
+      pointColors[i] = shown(i) && (highlight === null || sceneOf[i] === highlight) ? colorOf(i) : dimPoint;
     }
     for (let e = 0; e < graph.edgeCount; e += 1) {
       const a = graph.edgeSource[e];
       const b = graph.edgeTarget[e];
       const same = sceneOf[a] !== null && sceneOf[a] === sceneOf[b];
-      if (highlight === null) {
+      if (!shown(a) || !shown(b)) {
+        linkColors[e] = dimLink;
+      } else if (highlight === null) {
         linkColors[e] = same ? withAlpha(colorOf(a), t.mapLinkAlpha) : withAlpha(neutral, t.crossLinkAlpha);
       } else if (same && sceneOf[a] === highlight) {
         linkColors[e] = withAlpha(colorOf(a), Math.min(1, t.mapLinkAlpha * 2.5));

@@ -14,6 +14,7 @@ export interface Artist {
   name: string;
   aliases: string[];
   nights: number;
+  cities: string[];
   scene: number | null;
 }
 
@@ -94,11 +95,16 @@ function parseArtist(value: unknown, path: string): Artist {
     requireString(alias, `${path}.aliases[${i}]`),
   );
   const scene = record.scene === null ? null : requireId(record.scene, `${path}.scene`);
+  const cities =
+    record.cities === undefined
+      ? []
+      : requireArray(record.cities, `${path}.cities`).map((city, i) => requireString(city, `${path}.cities[${i}]`));
   return {
     id: requireId(record.id, `${path}.id`),
     name,
     aliases,
     nights: requireCount(record.nights, `${path}.nights`),
+    cities,
     scene,
   };
 }

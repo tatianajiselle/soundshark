@@ -6,7 +6,7 @@ import tempfile
 import tomllib
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict
@@ -19,7 +19,7 @@ from structlog.typing import FilteringBoundLogger
 
 from soundshark.db import ArtistAliasRow, ArtistSceneRow, RelatedArtistRow, SceneRow
 from soundshark.interfaces import Source
-from soundshark.services.related_lookup import artist_names, artist_nights
+from soundshark.services.related_lookup import artist_cities, artist_names, artist_nights
 
 log: FilteringBoundLogger = structlog.get_logger()
 
@@ -49,6 +49,7 @@ class MapArtist(TypedDict):
     name: str
     aliases: list[str]
     nights: int
+    cities: list[str]
     scene: int | None
 
 
@@ -69,6 +70,7 @@ class MapRows:
     scene_of: Mapping[int, int]
     scenes: Sequence[tuple[int, str, int]]
     related: Sequence[tuple[int, int, int, float]]
+    cities: Mapping[int, Sequence[str]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,6 +150,7 @@ def build_map(
             name=rows.names[artist_id],
             aliases=other_spellings(rows.names[artist_id], rows.aliases.get(artist_id, ())),
             nights=rows.nights.get(artist_id, 0),
+            cities=list(rows.cities.get(artist_id, ())),
             scene=rows.scene_of.get(artist_id),
         )
         for artist_id in artist_ids
@@ -243,6 +246,7 @@ async def load_map_rows(connection: AsyncConnection) -> MapRows:
         scene_of={artist_id: scene_id for artist_id, scene_id in members.all()},
         scenes=[(scene_id, label, size) for scene_id, label, size in scenes.all()],
         related=[(artist_id, rank, other_id, score) for artist_id, rank, other_id, score in related.all()],
+        cities=await artist_cities(connection),
     )
 
 

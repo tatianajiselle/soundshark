@@ -11,7 +11,7 @@ import { PathLabels } from "./PathLabels";
 type CosmographInstance = Parameters<NonNullable<CosmographProps["onMount"]>>[0];
 
 export type Camera =
-  | { kind: "fit" }
+  | { kind: "fit"; indices?: readonly number[] }
   | { kind: "point"; index: number }
   | { kind: "indices"; indices: readonly number[] }
   | { kind: "stay" };
@@ -70,7 +70,8 @@ function moveCamera(
 ) {
   if (camera.kind === "point") cosmograph.zoomToPoint(camera.index, duration, 3, true);
   else if (container && camera.kind === "indices") frame(cosmograph, container, camera.indices, 0.3, duration, true);
-  else if (container && camera.kind === "fit") frame(cosmograph, container, main, 0.04, duration, false);
+  else if (container && camera.kind === "fit")
+    frame(cosmograph, container, camera.indices ?? main, 0.04, duration, false);
 }
 
 function MapViewInner({
