@@ -122,7 +122,7 @@ def top_related_by_pagerank(
     *,
     sources_per_batch: int = 256,
     tolerance: float = 1e-10,
-    max_iterations: int = 200,
+    max_iterations: int = 600,
 ) -> dict[int, list[tuple[int, float]]]:
     artist_ids = sorted({e.a_id for e in edges} | {e.b_id for e in edges})
     if not artist_ids:

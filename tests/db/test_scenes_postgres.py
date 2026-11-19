@@ -24,7 +24,7 @@ async def stored_scenes(engine) -> dict[int, tuple[str, int, frozenset[int]]]:
 
 async def test_the_demo_graph_gets_scenes_with_labels(engine):
     await build_demo_graph(engine)
-    summary = await rebuild_scenes(engine, SceneSettings(min_scene_size=2), now=NOW)
+    summary = await rebuild_scenes(engine, SceneSettings(min_scene_size=2, resolution=1.0), now=NOW)
     scenes = await stored_scenes(engine)
     assert summary.scenes == len(scenes) > 0
     assert summary.artists_placed == sum(len(members) for _, _, members in scenes.values())
