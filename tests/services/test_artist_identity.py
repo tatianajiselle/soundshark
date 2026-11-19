@@ -13,6 +13,8 @@ from soundshark.services import group_by_matching_key, matching_key, split_lineu
         ("  Mirek   Sol ", "Mirek Sol"),
         ("Tamsin’s Rook", "Tamsin's Rook"),
         ("Dax–Ferro", "Dax-Ferro"),
+        ("Dax-Ferro", "Dax Ferro"),
+        ("Dax- Ferro", "dax ferro"),
         ("“Juno Hale”", "Juno Hale"),
     ],
 )
