@@ -81,24 +81,6 @@ test.describe("whole map", () => {
     await expect(page).not.toHaveURL(/#/);
   });
 
-  test("switches to the 3D view and back", async ({ page }) => {
-    await page.goto("/");
-    await waitReady(page);
-    const toggle = page.getByTestId("mode-toggle");
-    await expect(toggle).toHaveAttribute("aria-pressed", "false");
-
-    await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByTestId("map-3d").locator("canvas")).toBeVisible();
-    await expect(page.getByTestId("cities")).toHaveCount(0);
-    await expect(page.locator("html")).toHaveAttribute("data-layout3d", "settled", { timeout: 20_000 });
-    await page.screenshot({ path: join(shotsDir, "desktop-3d.png") });
-
-    await toggle.click();
-    await expect(page.getByTestId("map-3d")).toHaveCount(0);
-    await expect(page.getByTestId("cities")).toBeVisible();
-  });
-
   test("shows the credits from the file and the about text", async ({ page }) => {
     await page.goto("/");
     await waitReady(page);
@@ -309,5 +291,51 @@ test.describe("light mode", () => {
     await expect.poll(() => nonBackgroundShare(page), { timeout: 60_000 }).toBeGreaterThan(0.005);
     await page.waitForTimeout(2500);
     await page.screenshot({ path: join(shotsDir, "light-focus.png") });
+  });
+});
+
+test.describe("3D view", () => {
+  test.use({ view: null });
+
+  test("opens in 3D behind a loader, keeps cities and focus, and remembers 2D", async ({ page }) => {
+    await page.goto("/");
+    await waitReady(page);
+    const toggle = page.getByTestId("mode-toggle");
+    await expect(toggle).toHaveText("2D");
+    await expect(page.getByTestId("map-3d").locator("canvas")).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("data-layout3d", "settled", { timeout: 60_000 });
+    await expect(page.getByTestId("scene-loading")).toHaveCount(0);
+    await page.screenshot({ path: join(shotsDir, "desktop-3d.png") });
+
+    const cities = page.getByTestId("cities");
+    await cities.getByRole("radio", { name: "Northvale" }).click();
+    await expect(page).toHaveURL(/#c=Northvale$/);
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: join(shotsDir, "desktop-3d-city.png") });
+
+    const input = page.getByRole("combobox", { name: "Search artists" });
+    await input.fill(aliased.name);
+    await input.press("Enter");
+    await expect(page.getByTestId("panel")).toContainText(aliased.name);
+    await expect(page).toHaveURL(new RegExp(`a=${aliased.id}`));
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: join(shotsDir, "desktop-3d-focus.png") });
+
+    await toggle.click();
+    await expect(toggle).toHaveText("3D");
+    await expect(page.getByTestId("map-3d")).toHaveCount(0);
+    await expect(page.getByTestId("panel")).toContainText(aliased.name);
+
+    await page.reload();
+    await waitReady(page);
+    await expect(page.getByTestId("mode-toggle")).toHaveText("3D");
+    await expect(page.getByTestId("map-3d")).toHaveCount(0);
+  });
+
+  test("shows the loader until the scene is laid out", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("scene-loading")).toHaveText("Loading the scene…");
+    await expect(page.locator("html")).toHaveAttribute("data-layout3d", "settled", { timeout: 60_000 });
+    await expect(page.getByTestId("scene-loading")).toHaveCount(0);
   });
 });

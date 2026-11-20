@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { emphasisedEdges, layoutEdges, mainMask, rgbaCss } from "../graph/force";
 import type { Explorer } from "../graph/prepare";
-import { THEMES, pointSize, type Theme } from "../graph/styling";
+import { THEMES, pointSize, type Styling, type Theme } from "../graph/styling";
+import type { Camera } from "./MapView";
 
 interface Props {
   explorer: Explorer;
-  colors: Map<number, string>;
+  styling: Styling;
+  camera: Camera;
   theme: Theme;
-  focus: number | null;
   reducedMotion: boolean;
   onPick: (index: number) => void;
   onReady: () => void;
@@ -17,68 +19,83 @@ interface Node {
   x?: number;
   y?: number;
   z?: number;
+  fx?: number;
+  fy?: number;
+  fz?: number;
+}
+
+interface Link {
+  e: number;
+  source: number | Node;
+  target: number | Node;
 }
 
 type Instance = import("3d-force-graph").ForceGraph3DInstance;
 
-const LINKS_PER_NODE = 4;
+const LINKS_PER_ARTIST = 3;
 const FLY_MS = 1200;
-const FLY_DISTANCE = 90;
+const FIT_MS = 900;
+const FLY_DISTANCE = 260;
+const LINK_OPACITY = 0.7;
 
-export function ForceView({ explorer, colors, theme, focus, reducedMotion, onPick, onReady }: Props) {
+export function ForceView({ explorer, styling, camera, theme, reducedMotion, onPick, onReady }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const graphRef = useRef<Instance | null>(null);
-  const focusRef = useRef(focus);
+  const [settled, setSettled] = useState(false);
   const pickRef = useRef(onPick);
   const readyRef = useRef(onReady);
+  const stylingRef = useRef(styling);
   const t = THEMES[theme];
-  const paintRef = useRef({ colorOf: (_: number) => t.neutral, background: t.background });
+  const { graph } = explorer;
 
-  const data = useMemo(() => {
-    const { artists } = explorer.map;
-    const nodes: Node[] = artists.map((_, id) => ({ id }));
-    const seen = new Set<number>();
-    const links: { source: number; target: number }[] = [];
-    const n = artists.length;
-    explorer.related.forEach((list, a) => {
-      for (const { index: b } of list.slice(0, LINKS_PER_NODE)) {
-        const key = a < b ? a * n + b : b * n + a;
-        if (a === b || seen.has(key)) continue;
-        seen.add(key);
-        links.push({ source: a, target: b });
-      }
-    });
-    return { nodes, links };
-  }, [explorer]);
+  const shown = useMemo(() => mainMask(graph), [graph]);
 
-  const colorOf = useMemo(() => {
-    const { sceneOf } = explorer;
-    return (index: number) => {
-      if (index === focus) return t.ring;
-      const scene = sceneOf[index];
-      return (scene === null ? undefined : colors.get(scene)) ?? t.neutral;
-    };
-  }, [explorer, colors, focus, t]);
+  const base = useMemo(() => {
+    const nodes: Node[] = [];
+    const nodeAt = new Map<number, Node>();
+    for (let i = 0; i < graph.size; i += 1) {
+      if (shown[i] !== 1) continue;
+      const node: Node = { id: i };
+      nodes.push(node);
+      nodeAt.set(i, node);
+    }
+    const edges = layoutEdges(graph, explorer.related, shown, LINKS_PER_ARTIST);
+    const links: Link[] = edges.map((e) => ({ e, source: graph.edgeSource[e], target: graph.edgeTarget[e] }));
+    return { nodes, nodeAt, links, drawn: new Set(edges) };
+  }, [graph, explorer.related, shown]);
+
+  const extra = useMemo<Link[]>(
+    () =>
+      emphasisedEdges(graph, styling, shown, base.drawn).map((e) => ({
+        e,
+        source: graph.edgeSource[e],
+        target: graph.edgeTarget[e],
+      })),
+    [graph, styling, shown, base.drawn],
+  );
 
   useEffect(() => {
-    paintRef.current = { colorOf, background: t.background };
     pickRef.current = onPick;
     readyRef.current = onReady;
-    focusRef.current = focus;
-  }, [colorOf, t.background, onPick, onReady, focus]);
+    stylingRef.current = styling;
+  }, [onPick, onReady, styling]);
 
-  const fly = useCallback(
-    (node: Node | undefined) => {
-      const graph = graphRef.current;
-      if (!graph || !node || node.x === undefined) return;
-      const x = node.x;
-      const y = node.y ?? 0;
-      const z = node.z ?? 0;
-      const norm = Math.hypot(x, y, z) || 1;
-      const k = 1 + FLY_DISTANCE / norm;
-      graph.cameraPosition({ x: x * k, y: y * k, z: z * k }, { x, y, z }, reducedMotion ? 0 : FLY_MS);
+  const paint = useCallback(
+    (instance: Instance) => {
+      const { artists } = explorer.map;
+      const { maxNights } = explorer;
+      instance
+        .backgroundColor(t.background)
+        .nodeColor((node: object) => rgbaCss(stylingRef.current.pointColors[(node as Node).id]))
+        .nodeVal((node: object) => {
+          const id = (node as Node).id;
+          const size = 1 + (pointSize(artists[id]?.nights ?? 0, maxNights) - 2) / 4;
+          return stylingRef.current.emphasis.has(id) ? size * 2.5 : size;
+        })
+        .linkColor((link: object) => rgbaCss(stylingRef.current.linkColors[(link as Link).e]))
+        .linkWidth((link: object) => (stylingRef.current.linkWidths[(link as Link).e] > 1 ? 0.6 : 0));
     },
-    [reducedMotion],
+    [explorer, t.background],
   );
 
   useEffect(() => {
@@ -87,27 +104,18 @@ export function ForceView({ explorer, colors, theme, focus, reducedMotion, onPic
     let alive = true;
     let observer: ResizeObserver | null = null;
     const { artists } = explorer.map;
-    const maxNights = explorer.maxNights;
+    setSettled(false);
     import("3d-force-graph").then(({ default: ForceGraph3D }) => {
       if (!alive) return;
-      const graph = new ForceGraph3D(el)
+      const instance = new ForceGraph3D(el)
         .width(el.clientWidth)
         .height(el.clientHeight)
-        .backgroundColor(paintRef.current.background)
-        .nodeColor((node: object) => paintRef.current.colorOf((node as Node).id))
-        .graphData(data)
         .nodeId("id")
         .nodeLabel((node: object) => artists[(node as Node).id]?.name ?? "")
-        .nodeRelSize(1.5)
-        .nodeVal((node: object) => {
-          const size = pointSize(artists[(node as Node).id]?.nights ?? 0, maxNights);
-          return 1 + (size - 2) / 5;
-        })
+        .nodeRelSize(3)
         .nodeResolution(6)
-        .nodeOpacity(0.9)
-        .linkOpacity(0.12)
-        .linkWidth(0)
-        .linkColor(() => "#8a93a6")
+        .nodeOpacity(1)
+        .linkOpacity(LINK_OPACITY)
         .warmupTicks(60)
         .cooldownTicks(120)
         .cooldownTime(8000)
@@ -115,16 +123,19 @@ export function ForceView({ explorer, colors, theme, focus, reducedMotion, onPic
         .showNavInfo(false)
         .onNodeClick((node: object) => pickRef.current((node as Node).id))
         .onEngineStop(() => {
+          for (const node of base.nodes) {
+            node.fx = node.x;
+            node.fy = node.y;
+            node.fz = node.z;
+          }
           performance.mark("explorer:3d-settled");
           document.documentElement.dataset.layout3d = "settled";
-          const current = focusRef.current;
-          if (current !== null) fly(data.nodes[current]);
+          setSettled(true);
         });
-      const controls = graph.controls() as { autoRotate: boolean; autoRotateSpeed: number };
-      controls.autoRotate = !reducedMotion;
-      controls.autoRotateSpeed = 0.4;
-      graphRef.current = graph;
-      observer = new ResizeObserver(() => graph.width(el.clientWidth).height(el.clientHeight));
+      paint(instance);
+      instance.graphData({ nodes: base.nodes, links: base.links });
+      graphRef.current = instance;
+      observer = new ResizeObserver(() => instance.width(el.clientWidth).height(el.clientHeight));
       observer.observe(el);
       readyRef.current();
     });
@@ -136,15 +147,48 @@ export function ForceView({ explorer, colors, theme, focus, reducedMotion, onPic
       delete document.documentElement.dataset.layout3d;
       el.replaceChildren();
     };
-  }, [data, explorer, reducedMotion, fly]);
+  }, [base, explorer, paint]);
 
   useEffect(() => {
-    graphRef.current?.backgroundColor(t.background).nodeColor((node: object) => colorOf((node as Node).id));
-  }, [colorOf, t.background]);
+    const instance = graphRef.current;
+    if (instance) paint(instance);
+  }, [paint, styling]);
 
   useEffect(() => {
-    if (focus !== null) fly(data.nodes[focus]);
-  }, [focus, data.nodes, fly]);
+    const instance = graphRef.current;
+    if (!instance || !settled) return;
+    instance.graphData({ nodes: base.nodes, links: extra.length === 0 ? base.links : [...base.links, ...extra] });
+  }, [base, extra, settled]);
 
-  return <div className="map map-3d" data-testid="map-3d" ref={host} />;
+  useEffect(() => {
+    const instance = graphRef.current;
+    if (!instance || !settled) return;
+    const controls = instance.controls() as { autoRotate: boolean; autoRotateSpeed: number };
+    controls.autoRotate = camera.kind === "fit" && camera.indices === undefined && !reducedMotion;
+    controls.autoRotateSpeed = 0.4;
+    const ms = reducedMotion ? 0 : FIT_MS;
+    if (camera.kind === "point") {
+      const node = base.nodeAt.get(camera.index);
+      if (!node || node.x === undefined) return;
+      const x = node.x;
+      const y = node.y ?? 0;
+      const z = node.z ?? 0;
+      const k = 1 + FLY_DISTANCE / (Math.hypot(x, y, z) || 1);
+      instance.cameraPosition({ x: x * k, y: y * k, z: z * k }, { x, y, z }, reducedMotion ? 0 : FLY_MS);
+    } else if (camera.kind === "fit" || camera.kind === "indices") {
+      const only = camera.indices === undefined ? null : new Set(camera.indices);
+      instance.zoomToFit(ms, 40, (node: object) => only === null || only.has((node as Node).id));
+    }
+  }, [camera, settled, reducedMotion, base.nodeAt]);
+
+  return (
+    <>
+      <div className="map map-3d" data-testid="map-3d" ref={host} />
+      {!settled && (
+        <div className="scene-loading" role="status" data-testid="scene-loading">
+          Loading the scene…
+        </div>
+      )}
+    </>
+  );
 }

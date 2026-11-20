@@ -73,7 +73,17 @@ interface Guards {
   pageErrors: string[];
 }
 
-export const test = base.extend<{ guards: Guards }>({
+export const test = base.extend<{ guards: Guards; view: "2d" | "3d" | null; viewSetup: void }>({
+  view: ["2d", { option: true }],
+  viewSetup: [
+    async ({ page, view }, use) => {
+      if (view !== null) {
+        await page.addInitScript((mode) => window.localStorage.setItem("soundshark:view", mode), view);
+      }
+      await use();
+    },
+    { auto: true },
+  ],
   guards: [
     async ({ page }, use) => {
       const guards: Guards = { cspViolations: [], externalRequests: [], pageErrors: [] };
