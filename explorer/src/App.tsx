@@ -208,9 +208,9 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
       ) : (
         <ForceView
           explorer={explorer}
-          colors={colors}
+          styling={styling}
+          camera={camera}
           theme={theme}
-          focus={focus}
           reducedMotion={reducedMotion}
           onPick={focusOn}
           onReady={onReady}
@@ -230,7 +230,7 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
           inputRef={searchInput}
           testId="search"
         />
-        {mode === "2d" && <CityToggle cities={explorer.cities} city={city} onChoose={chooseCity} />}
+        <CityToggle cities={explorer.cities} city={city} onChoose={chooseCity} />
         <button
           type="button"
           className="mode-toggle"

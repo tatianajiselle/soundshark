@@ -81,7 +81,7 @@ test.describe("whole map", () => {
     await expect(page).not.toHaveURL(/#/);
   });
 
-  test("switches to the 3D view and back", async ({ page }) => {
+  test("switches to the 3D view and back, keeping cities and focus", async ({ page }) => {
     await page.goto("/");
     await waitReady(page);
     const toggle = page.getByTestId("mode-toggle");
@@ -90,13 +90,26 @@ test.describe("whole map", () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("map-3d").locator("canvas")).toBeVisible();
-    await expect(page.getByTestId("cities")).toHaveCount(0);
     await expect(page.locator("html")).toHaveAttribute("data-layout3d", "settled", { timeout: 20_000 });
     await page.screenshot({ path: join(shotsDir, "desktop-3d.png") });
 
+    const cities = page.getByTestId("cities");
+    await cities.getByRole("radio", { name: "Northvale" }).click();
+    await expect(page).toHaveURL(/#c=Northvale$/);
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: join(shotsDir, "desktop-3d-city.png") });
+
+    const input = page.getByRole("combobox", { name: "Search artists" });
+    await input.fill(aliased.name);
+    await input.press("Enter");
+    await expect(page.getByTestId("panel")).toContainText(aliased.name);
+    await expect(page).toHaveURL(new RegExp(`a=${aliased.id}`));
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: join(shotsDir, "desktop-3d-focus.png") });
+
     await toggle.click();
     await expect(page.getByTestId("map-3d")).toHaveCount(0);
-    await expect(page.getByTestId("cities")).toBeVisible();
+    await expect(page.getByTestId("panel")).toContainText(aliased.name);
   });
 
   test("shows the credits from the file and the about text", async ({ page }) => {
