@@ -181,5 +181,14 @@ export function ForceView({ explorer, styling, camera, theme, reducedMotion, onP
     }
   }, [camera, settled, reducedMotion, base.nodeAt]);
 
-  return <div className="map map-3d" data-testid="map-3d" ref={host} />;
+  return (
+    <>
+      <div className="map map-3d" data-testid="map-3d" ref={host} />
+      {!settled && (
+        <div className="scene-loading" role="status" data-testid="scene-loading">
+          Loading the scene…
+        </div>
+      )}
+    </>
+  );
 }

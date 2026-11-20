@@ -750,6 +750,28 @@ a:hover {
   cursor: pointer;
 }
 
-.mode-toggle[aria-pressed="true"] {
-  background: rgba(127, 127, 127, 0.3);
+.scene-loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  z-index: 1;
+  pointer-events: none;
+  animation: scene-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes scene-pulse {
+  50% {
+    color: var(--text);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-loading {
+    animation: none;
+  }
 }

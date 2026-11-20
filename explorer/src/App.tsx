@@ -13,6 +13,26 @@ import { MAX_HOPS, sceneColors, styleGraph, type View } from "./graph/styling";
 import { formatHash, parseHash, type UrlState } from "./graph/urlState";
 import { useMediaQuery } from "./useMediaQuery";
 
+const VIEW_KEY = "soundshark:view";
+type Mode = "2d" | "3d";
+
+function savedMode(): Mode {
+  try {
+    return window.localStorage.getItem(VIEW_KEY) === "2d" ? "2d" : "3d";
+  } catch {
+    return "3d";
+  }
+}
+
+function saveMode(mode: Mode): boolean {
+  try {
+    window.localStorage.setItem(VIEW_KEY, mode);
+  } catch {
+    return false;
+  }
+  return true;
+}
+
 type State = { status: "loading" } | { status: "error"; error: LoadError } | { status: "ready"; loaded: Loaded };
 
 function useUrlState(): [UrlState, (next: UrlState) => void] {
@@ -98,7 +118,12 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
   const [url, navigate] = useUrlState();
   const [highlight, setHighlight] = useState<number | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [mode, setMode] = useState<"2d" | "3d">("2d");
+  const [mode, setMode] = useState<Mode>(savedMode);
+  const switchMode = useCallback(() => {
+    const next = mode === "2d" ? "3d" : "2d";
+    saveMode(next);
+    setMode(next);
+  }, [mode]);
   const searchInput = useRef<HTMLInputElement>(null);
 
   const colors = useMemo(() => sceneColors(map.scenes, theme), [map.scenes, theme]);
@@ -235,10 +260,10 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
           type="button"
           className="mode-toggle"
           data-testid="mode-toggle"
-          aria-pressed={mode === "3d"}
-          onClick={() => setMode(mode === "2d" ? "3d" : "2d")}
+          aria-label={mode === "3d" ? "Switch to the 2D map" : "Switch to the 3D map"}
+          onClick={switchMode}
         >
-          3D
+          {mode === "3d" ? "2D" : "3D"}
         </button>
         {missing && (
           <p className="notice" role="status">
