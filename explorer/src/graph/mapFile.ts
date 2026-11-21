@@ -16,7 +16,10 @@ export interface Artist {
   nights: number;
   cities: string[];
   scene: number | null;
+  pos: Point3 | null;
 }
+
+export type Point3 = [x: number, y: number, z: number];
 
 export type RelatedRow = [source: number, target: number, score: number];
 
@@ -87,6 +90,14 @@ function parseScene(value: unknown, path: string): Scene {
   };
 }
 
+function parsePoint(value: unknown, path: string): Point3 {
+  const list = requireArray(value, path);
+  if (list.length !== 3 || !list.every((v) => typeof v === "number" && Number.isFinite(v))) {
+    fail(`${path} must be [x, y, z]`);
+  }
+  return [list[0], list[1], list[2]] as Point3;
+}
+
 function parseArtist(value: unknown, path: string): Artist {
   const record = requireRecord(value, path);
   const name = requireString(record.name, `${path}.name`);
@@ -106,6 +117,7 @@ function parseArtist(value: unknown, path: string): Artist {
     nights: requireCount(record.nights, `${path}.nights`),
     cities,
     scene,
+    pos: record.pos === undefined || record.pos === null ? null : parsePoint(record.pos, `${path}.pos`),
   };
 }
 

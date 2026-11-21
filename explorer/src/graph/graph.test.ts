@@ -3,7 +3,7 @@ import { buildGraph, componentSizes, edgesAlong, hopsFrom, mainIndices, relatedB
 import type { Artist, RelatedRow } from "./mapFile";
 
 function artists(...ids: number[]): Artist[] {
-  return ids.map((id) => ({ id, name: `Artist ${id}`, aliases: [], nights: id, cities: [], scene: null }));
+  return ids.map((id) => ({ id, name: `Artist ${id}`, aliases: [], nights: id, cities: [], pos: null, scene: null }));
 }
 
 const chainArtists = artists(10, 20, 30, 40, 50, 60, 70);

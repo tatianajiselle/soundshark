@@ -58,12 +58,12 @@ describe("styleGraph", () => {
     { id: 2, label: "two", size: 2 },
   ];
   const artists: Artist[] = [
-    { id: 1, name: "a", aliases: [], nights: 1, cities: [], scene: 1 },
-    { id: 2, name: "b", aliases: [], nights: 1, cities: [], scene: 1 },
-    { id: 3, name: "c", aliases: [], nights: 1, cities: [], scene: 1 },
-    { id: 4, name: "d", aliases: [], nights: 1, cities: [], scene: 2 },
-    { id: 5, name: "e", aliases: [], nights: 1, cities: [], scene: 2 },
-    { id: 6, name: "f", aliases: [], nights: 1, cities: [], scene: null },
+    { id: 1, name: "a", aliases: [], nights: 1, cities: [], pos: null, scene: 1 },
+    { id: 2, name: "b", aliases: [], nights: 1, cities: [], pos: null, scene: 1 },
+    { id: 3, name: "c", aliases: [], nights: 1, cities: [], pos: null, scene: 1 },
+    { id: 4, name: "d", aliases: [], nights: 1, cities: [], pos: null, scene: 2 },
+    { id: 5, name: "e", aliases: [], nights: 1, cities: [], pos: null, scene: 2 },
+    { id: 6, name: "f", aliases: [], nights: 1, cities: [], pos: null, scene: null },
   ];
   const related: RelatedRow[] = [
     [1, 2, 1],

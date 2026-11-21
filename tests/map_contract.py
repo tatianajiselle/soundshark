@@ -3,7 +3,7 @@ from datetime import datetime
 TOP_LEVEL_KEYS = {"version", "generated_at", "credits", "scenes", "artists", "related"}
 CREDIT_KEYS = {"name", "url"}
 SCENE_KEYS = {"id", "label", "size"}
-ARTIST_KEYS = {"id", "name", "aliases", "nights", "cities", "scene"}
+ARTIST_KEYS = {"id", "name", "aliases", "nights", "cities", "scene", "pos"}
 
 
 def assert_map_contract(payload: object) -> None:
@@ -30,6 +30,10 @@ def assert_map_contract(payload: object) -> None:
         assert isinstance(artist["cities"], list)
         assert all(isinstance(city, str) for city in artist["cities"])
         assert artist["scene"] is None or artist["scene"] in scene_ids
+        position = artist["pos"]
+        assert position is None or (
+            isinstance(position, list) and len(position) == 3 and all(isinstance(v, float) for v in position)
+        )
         artist_ids.add(artist["id"])
     for pair in payload["related"]:
         assert isinstance(pair, list) and len(pair) == 3
