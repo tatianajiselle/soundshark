@@ -3,7 +3,7 @@ import type { Artist } from "./mapFile";
 import { MatchTier, buildSearchIndex, normalize, search } from "./search";
 
 function artist(id: number, name: string, nights: number, aliases: string[] = []): Artist {
-  return { id, name, aliases, nights, cities: [], scene: null };
+  return { id, name, aliases, nights, cities: [], pos: null, scene: null };
 }
 
 const roster: Artist[] = [

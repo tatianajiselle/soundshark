@@ -139,6 +139,19 @@ function citiesOf(artist) {
   return artist.id % 9 === 0 ? [CITIES[home], CITIES[1 - home]] : [CITIES[home]];
 }
 
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+
+function posOf(artist, i) {
+  if (artist.island) return null;
+  const k = artist.sceneIndex ?? 0;
+  const centre = [Math.cos(k * 2.4) * 260, Math.sin(k * 2.4) * 260, ((k % 5) - 2) * 90];
+  const y = 1 - ((i * 7) % 97) / 48;
+  const r = Math.sqrt(Math.max(0, 1 - y * y)) * 70;
+  return [centre[0] + Math.cos(i * GOLDEN) * r, centre[1] + y * 70, centre[2] + Math.sin(i * GOLDEN) * r].map(
+    (v) => Math.round(v * 10) / 10,
+  );
+}
+
 const ISLAND_SIZE = 3;
 const artists = [];
 let nextId = 101;
@@ -268,13 +281,14 @@ const map = {
     { name: "Made-up Listings", url: "https://example.com/listings" },
   ],
   scenes,
-  artists: artists.map((a) => ({
+  artists: artists.map((a, i) => ({
     id: a.id,
     name: a.name,
     aliases: a.aliases,
     nights: a.nights,
     cities: citiesOf(a),
     scene: a.sceneIndex === null ? null : sceneIdByIndex[a.sceneIndex],
+    pos: posOf(a, i),
   })),
   related,
 };

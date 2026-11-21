@@ -19,6 +19,7 @@ from structlog.typing import FilteringBoundLogger
 
 from soundshark.db import ArtistAliasRow, ArtistSceneRow, RelatedArtistRow, SceneRow
 from soundshark.interfaces import Source
+from soundshark.services.map_layout import Layout, layout_3d
 from soundshark.services.related_lookup import artist_cities, artist_names, artist_nights
 
 log: FilteringBoundLogger = structlog.get_logger()
@@ -51,6 +52,7 @@ class MapArtist(TypedDict):
     nights: int
     cities: list[str]
     scene: int | None
+    pos: list[float] | None
 
 
 class MapFile(TypedDict):
@@ -134,6 +136,7 @@ def build_map(
     credits: Sequence[MapCredit],
     generated_at: datetime,
     scene_names: Mapping[int, str] | None = None,
+    layout: Layout = layout_3d,
 ) -> MapFile:
     names = scene_names or {}
     top_related = sorted(
@@ -144,6 +147,7 @@ def build_map(
     artist_ids = sorted(
         {artist_id for artist_id, _, _, _ in rows.related} | {other_id for _, _, other_id, _ in top_related}
     )
+    positions = layout(artist_ids, top_related)
     artists = [
         MapArtist(
             id=artist_id,
@@ -152,6 +156,7 @@ def build_map(
             nights=rows.nights.get(artist_id, 0),
             cities=list(rows.cities.get(artist_id, ())),
             scene=rows.scene_of.get(artist_id),
+            pos=positions.get(artist_id),
         )
         for artist_id in artist_ids
     ]

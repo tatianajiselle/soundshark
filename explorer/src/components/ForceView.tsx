@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { emphasisedEdges, layoutEdges, mainMask, rgbaCss } from "../graph/force";
+import { emphasisedEdges, layoutEdges, mainMask, placedMask, rgbaCss } from "../graph/force";
 import type { Explorer } from "../graph/prepare";
 import { THEMES, pointSize, type Styling, type Theme } from "../graph/styling";
 import type { Camera } from "./MapView";
@@ -48,21 +48,24 @@ export function ForceView({ explorer, styling, camera, theme, reducedMotion, onP
   const t = THEMES[theme];
   const { graph } = explorer;
 
-  const shown = useMemo(() => mainMask(graph), [graph]);
+  const placed = useMemo(() => placedMask(explorer.map.artists), [explorer.map.artists]);
+  const shown = useMemo(() => placed ?? mainMask(graph), [placed, graph]);
 
   const base = useMemo(() => {
     const nodes: Node[] = [];
     const nodeAt = new Map<number, Node>();
     for (let i = 0; i < graph.size; i += 1) {
       if (shown[i] !== 1) continue;
-      const node: Node = { id: i };
+      const pos = explorer.map.artists[i].pos;
+      const node: Node =
+        pos === null ? { id: i } : { id: i, x: pos[0], y: pos[1], z: pos[2], fx: pos[0], fy: pos[1], fz: pos[2] };
       nodes.push(node);
       nodeAt.set(i, node);
     }
     const edges = layoutEdges(graph, explorer.related, shown, LINKS_PER_ARTIST);
     const links: Link[] = edges.map((e) => ({ e, source: graph.edgeSource[e], target: graph.edgeTarget[e] }));
     return { nodes, nodeAt, links, drawn: new Set(edges) };
-  }, [graph, explorer.related, shown]);
+  }, [graph, explorer.related, explorer.map.artists, shown]);
 
   const extra = useMemo<Link[]>(
     () =>
@@ -116,8 +119,8 @@ export function ForceView({ explorer, styling, camera, theme, reducedMotion, onP
         .nodeResolution(6)
         .nodeOpacity(1)
         .linkOpacity(LINK_OPACITY)
-        .warmupTicks(60)
-        .cooldownTicks(120)
+        .warmupTicks(placed === null ? 60 : 0)
+        .cooldownTicks(placed === null ? 120 : 1)
         .cooldownTime(8000)
         .enableNodeDrag(false)
         .showNavInfo(false)
@@ -147,7 +150,7 @@ export function ForceView({ explorer, styling, camera, theme, reducedMotion, onP
       delete document.documentElement.dataset.layout3d;
       el.replaceChildren();
     };
-  }, [base, explorer, paint]);
+  }, [base, explorer, paint, placed]);
 
   useEffect(() => {
     const instance = graphRef.current;

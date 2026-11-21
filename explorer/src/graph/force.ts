@@ -1,4 +1,5 @@
 import { mainIndices, type Graph, type RelatedEntry } from "./graph";
+import type { Artist } from "./mapFile";
 import type { Rgba, Styling } from "./styling";
 
 export function edgeBetween(graph: Graph, a: number, b: number): number {
@@ -12,6 +13,18 @@ export function mainMask(graph: Graph): Uint8Array {
   const mask = new Uint8Array(graph.size);
   for (const index of mainIndices(graph)) mask[index] = 1;
   return mask;
+}
+
+export function placedMask(artists: readonly Artist[]): Uint8Array | null {
+  const mask = new Uint8Array(artists.length);
+  let any = false;
+  artists.forEach((artist, i) => {
+    if (artist.pos !== null) {
+      mask[i] = 1;
+      any = true;
+    }
+  });
+  return any ? mask : null;
 }
 
 export function layoutEdges(

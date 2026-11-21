@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { edgeBetween, emphasisedEdges, layoutEdges, mainMask, rgbaCss } from "./force";
+import { edgeBetween, emphasisedEdges, layoutEdges, mainMask, placedMask, rgbaCss } from "./force";
 import { buildGraph, edgesAlong, hopsFrom, relatedBySource, shortestPath } from "./graph";
 import type { Artist, RelatedRow } from "./mapFile";
 import { sceneColors, styleGraph } from "./styling";
@@ -11,6 +11,7 @@ const artists: Artist[] = [1, 2, 3, 4, 5, 6, 7].map((id) => ({
   nights: id,
   cities: [],
   scene: null,
+  pos: null,
 }));
 const rows: RelatedRow[] = [
   [1, 2, 0.9],
@@ -77,5 +78,13 @@ describe("emphasisedEdges", () => {
 describe("rgbaCss", () => {
   it("writes 0-1 channels as css", () => {
     expect(rgbaCss([1, 0.5, 0, 0.25])).toBe("rgba(255,128,0,0.25)");
+  });
+});
+
+describe("placedMask", () => {
+  it("marks artists that come with a position, or gives null when none do", () => {
+    expect(placedMask(artists)).toBeNull();
+    const placed = artists.map((a, i) => ({ ...a, pos: i < 2 ? ([i, 0, 0] as [number, number, number]) : null }));
+    expect(Array.from(placedMask(placed) ?? [])).toEqual([1, 1, 0, 0, 0, 0, 0]);
   });
 });
