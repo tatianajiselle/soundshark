@@ -8,10 +8,10 @@ const map: MapFile = {
   credits: [],
   scenes: [],
   artists: [
-    { id: 1, name: "Vela Moss", aliases: [], nights: 9, cities: ["Northvale", "Lakeport"], scene: null },
-    { id: 2, name: "Orrin Tal", aliases: [], nights: 4, cities: ["Northvale"], scene: null },
-    { id: 3, name: "Brix", aliases: [], nights: 2, cities: ["Lakeport"], scene: null },
-    { id: 4, name: "Tamsk", aliases: [], nights: 0, cities: [], scene: null },
+    { id: 1, name: "Vela Moss", aliases: [], nights: 9, cities: ["Northvale", "Lakeport"], pos: null, scene: null },
+    { id: 2, name: "Orrin Tal", aliases: [], nights: 4, cities: ["Northvale"], pos: null, scene: null },
+    { id: 3, name: "Brix", aliases: [], nights: 2, cities: ["Lakeport"], pos: null, scene: null },
+    { id: 4, name: "Tamsk", aliases: [], nights: 0, cities: [], pos: null, scene: null },
   ],
   related: [
     [1, 2, 0.5],

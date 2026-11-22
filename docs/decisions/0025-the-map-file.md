@@ -18,18 +18,20 @@ That file is published on a website, so anyone can download it. [0012](0012-data
   "generated_at": "2026-11-17T04:31:00+00:00",
   "credits": [{"name": "Some Source", "url": "https://example.org/"}],
   "scenes": [{"id": 3, "label": "A / B / C", "size": 412}],
-  "artists": [{"id": 17, "name": "Display Name", "aliases": ["Other Spelling"], "nights": 53, "cities": ["Some City"], "scene": 3}],
+  "artists": [{"id": 17, "name": "Display Name", "aliases": ["Other Spelling"], "nights": 53, "cities": ["Some City"], "scene": 3, "pos": [12.5, -40.1, 7.0]}],
   "related": [[17, 42, 0.012345]]
 }
 ```
 
-- **`artists`**: every artist with related artists, by id. `aliases` are other display spellings of the name, so search finds them; spellings that differ only in case are dropped, and there are at most 10. The internal matching keys stay out. `nights` is how many nights they played in total, `cities` the cities of the venues they played (most nights first, without counts), and `scene` is their scene's id or `null`. The explorer uses `cities` to show one city at a time.
+- **`artists`**: every artist with related artists, by id. `aliases` are other display spellings of the name, so search finds them; spellings that differ only in case are dropped, and there are at most 10. The internal matching keys stay out. `nights` is how many nights they played in total, `cities` the cities of the venues they played (most nights first, without counts), and `scene` is their scene's id or `null`. The explorer uses `cities` to show one city at a time. `pos` is where the artist sits in the 3D view, or `null` for artists outside the main part of the map (see below).
 - **`related`**: each artist's top 10 as `[artist, other, score]`, ordered by artist then rank. Scores keep 6 significant digits, plenty to rank and draw by. 10, not the stored 50: it's what the map draws, and it keeps the file small.
 - **`scenes`**: every scene, largest first.
 - **`credits`**: one entry per configured source, with its name and the origin of its first seed URL, so the explorer can credit and link back ([0012](0012-data-ethics.md)).
 - **`version`** changes only when a change would break a reader. Adding a field doesn't, but it still changes the contract (below).
 
-**Derived data only.** The file never contains dates of nights, rooms, venues, events, lineups, b2b flags or per-pair night counts. Those are the archive itself; together they would let anyone rebuild the lineups. Names, total nights, cities, scores and scenes say who is close to whom without saying where or when: a city names no venue and no night, and its order only says where an artist played most. A test walks the produced JSON and checks the exact keys at every level, so adding a field fails it until someone decides to change the contract.
+**3D positions, laid out once.** Laying out over ten thousand artists in the browser took tens of seconds before anything appeared. The export lays them out instead: it keeps the connected parts of the top-10 graph that hold at least 2% of the artists (the same rule the 2D view uses to frame the map), joins each artist to their 3 closest, and runs a Fruchterman–Reingold layout in 3D (`python-igraph`, 500 iterations, fixed seed, so the same data gives the same positions). Positions are centred and scaled to a radius of about 400, rounded to one decimal. A map without positions still works: the explorer falls back to laying it out in the browser.
+
+**Derived data only.** The file never contains dates of nights, rooms, venues, events, lineups, b2b flags or per-pair night counts. Those are the archive itself; together they would let anyone rebuild the lineups. Names, total nights, cities, scores, scenes and positions say who is close to whom without saying where or when: a city names no venue and no night, and its order only says where an artist played most. A test walks the produced JSON and checks the exact keys at every level, so adding a field fails it until someone decides to change the contract.
 
 **Written so a reader never sees half a file.** The command writes `map.json` and `map.json.gz` (the same bytes, gzipped) to temporary files in the same directory, then moves each into place with an atomic rename. A web server reading while the job writes gets the old file or the new one. The JSON is compact (no spaces) UTF-8 with names as written, not `\u` escapes. The gzip carries no timestamp, so the same data gives the same bytes. The files are readable by everyone (mode 644), since they're meant to be served.
 
@@ -54,5 +56,7 @@ Scene labels can be replaced by hand-written names from a TOML file (`SOUNDSHARK
 - **An API endpoint that builds the map on request.** Always fresh, but the same work on every visit, for data that changes once a night.
 - **Include the evidence (nights together, last time together).** The explorer shows that per pair from the API ([0010](0010-read-only-explorer.md)), next to a link to the original page, rather than in a bulk file anyone can download.
 - **Pretty-printed JSON.** Easier to read, noticeably bigger; `python -m json.tool` reads the compact file just as well.
+- **Lay out 3D in the browser.** No new dependency, but every visit waits for the same layout. Caching it in the browser only helps the second visit.
+- **Lay out 3D with plain numpy.** Avoids a dependency, but repulsion between every pair is slow without the tree-based shortcuts igraph's layout uses.
 - **Brotli.** Smaller still, but one more dependency; gzip is in the standard library and every server and browser speaks it.
 - **Write in place.** Simpler, but a reader could catch a half-written file.

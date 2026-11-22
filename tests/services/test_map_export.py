@@ -66,6 +66,8 @@ def test_the_header():
 
 def test_artists_carry_name_spellings_nights_and_scene():
     artists = {a["id"]: a for a in build_map(sample_rows(), CREDITS, GENERATED_AT)["artists"]}
+    position = artists[1].pop("pos")
+    assert isinstance(position, list) and len(position) == 3
     assert artists[1] == {
         "id": 1,
         "name": "Ora Vance",

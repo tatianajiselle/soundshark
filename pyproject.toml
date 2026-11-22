@@ -12,6 +12,7 @@ dependencies = [
     "networkx>=3.7",
     "numpy>=2.3",
     "python-dotenv>=1.0",
+    "python-igraph>=0.11",
     "rapidfuzz>=3.14.6",
     "scipy>=1.16",
     "sqlalchemy[asyncio]>=2.0.36",

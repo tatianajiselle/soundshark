@@ -11,8 +11,16 @@ function validMap(): Record<string, unknown> {
       { id: 5, label: "Brix", size: 1 },
     ],
     artists: [
-      { id: 17, name: "Vela Moss", aliases: ["Véla Möss"], nights: 53, cities: ["Lakeport", "Northvale"], scene: 3 },
-      { id: 42, name: "Orrin Tal", aliases: [], nights: 8, cities: ["Northvale"], scene: 3 },
+      {
+        id: 17,
+        name: "Vela Moss",
+        aliases: ["Véla Möss"],
+        nights: 53,
+        cities: ["Lakeport", "Northvale"],
+        pos: null,
+        scene: 3,
+      },
+      { id: 42, name: "Orrin Tal", aliases: [], nights: 8, cities: ["Northvale"], pos: null, scene: 3 },
       { id: 50, name: "Brix", aliases: [], nights: 1, scene: null },
     ],
     related: [
