@@ -15,6 +15,8 @@ from soundshark.services import group_by_matching_key, matching_key, split_lineu
         ("Dax–Ferro", "Dax-Ferro"),
         ("Dax-Ferro", "Dax Ferro"),
         ("Dax- Ferro", "dax ferro"),
+        ("D.Ferro", "D Ferro"),
+        ("Mr. Ferro", "Mr Ferro"),
         ("“Juno Hale”", "Juno Hale"),
     ],
 )
