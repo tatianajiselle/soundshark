@@ -8,7 +8,7 @@ The same DJ appears as "Ora Vance", "ORA VANCE" and "Ora  Vance (live)". Differe
 
 ## Decision
 
-- **Normalize** every name the same way: lowercase, remove accents, collapse punctuation and spaces (a hyphen counts as a space, so "Dax-Ferro" is "Dax Ferro"), and strip set tags such as "(live)" into the slot's tags.
+- **Normalize** every name the same way: lowercase, remove accents, collapse punctuation and spaces (a hyphen or a dot counts as a space, so "Dax-Ferro" is "Dax Ferro" and "D.Ferro" is "D Ferro"), and strip set tags such as "(live)" into the slot's tags.
 - **Exact matches after normalization merge automatically.** Each normalized spelling is an alias that belongs to exactly one artist.
 - **Fuzzy matches are only suggestions.** Close pairs are scored and listed for review, and a person approves or rejects them from the command line. Nothing fuzzy merges on its own.
 - **Manual decisions always win** over automatic ones, and survive rebuilds.

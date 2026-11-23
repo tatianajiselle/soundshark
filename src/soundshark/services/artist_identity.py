@@ -27,7 +27,7 @@ def _strip_accents(text: str) -> str:
 def matching_key(name: str) -> str:
     folded = _strip_accents(_strip_accents(name).casefold())
     unified = folded.translate(_CURLY_QUOTES_TO_STRAIGHT).translate(_DASHES_TO_HYPHEN)
-    single_spaced = " ".join(unified.replace("-", " ").split())
+    single_spaced = " ".join(unified.replace("-", " ").replace(".", " ").split())
     return single_spaced.strip(_EDGE_CHARACTERS) or single_spaced
 
 
