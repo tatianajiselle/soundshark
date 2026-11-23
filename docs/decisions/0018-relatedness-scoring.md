@@ -24,7 +24,7 @@
 **Scores.** For every artist, **personalized PageRank** on that weighted graph (damping 0.95): a random walk along shared bills that keeps jumping back to the artist. It started at 0.85; the longer walks of 0.95 lean more on shared friends, which did better in the same backtest. Artists the walk visits most are the most related, which includes artists who never shared a bill but share many of the same people.
 
 - The **top 50** per artist are stored in `related_artists`. `artist_edges` keeps every pair, so nothing about the graph itself is cut.
-- All artists are scored together in batches with sparse matrices (scipy), which takes seconds instead of calling networkx once per artist. A test checks the scores against `networkx.pagerank` on random graphs.
+- All artists are scored together with sparse matrices (scipy). The walk's fixed point solves `(I − d·Wᵀ) x = (1 − d) e`, so the job factors that matrix once (sparse LU with a minimum-degree ordering, which keeps the factors small) and solves it for batches of artists. That is exact, and many times faster than power iteration, which needs hundreds of matrix products per batch at damping 0.95. A test checks the scores against `networkx.pagerank` on random graphs.
 - The job replaces both tables in one transaction, with Postgres `COPY`, so readers never see a half-built graph.
 - `related` reads only stored rows, and shows the evidence for each answer: nights together, same room, b2b, and the last time.
 
@@ -40,4 +40,5 @@
 - **Use only the room of the shared night.** What the first version did. One crossover night counts as much as years in the same room.
 - **Ignore different-room nights entirely (weight 0).** Nearly the same rankings, but splits each venue's rooms into separate graphs.
 - **networkx `pagerank` per artist.** The reference implementation, but rebuilds the matrix on every call: minutes instead of seconds for every re-run.
+- **Power iteration.** What the job first did. Simple, but slow to converge at damping 0.95, and its run time grew fastest as the map grew.
 - **Store every score.** One row per pair of artists in the archive, almost all of them noise.

@@ -181,8 +181,16 @@ a:hover {
   z-index: 3;
 }
 
+.topbar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 .brand {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 16px;
   font-weight: 650;
   letter-spacing: 0.01em;
@@ -742,7 +750,10 @@ a:hover {
 
 .mode-toggle {
   font: inherit;
-  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1;
+  padding: 5px 10px;
+  margin-left: auto;
   border-radius: 8px;
   border: 1px solid currentColor;
   background: transparent;

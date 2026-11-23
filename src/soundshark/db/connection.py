@@ -6,6 +6,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 _QUERY_PARAMS_ASYNCPG_DOES_NOT_ACCEPT = frozenset({"sslmode", "channel_binding"})
+POOL_RECYCLE_SECONDS = 240
 _SSL_MODE_UPGRADES = {"require": "verify-full"}
 _VERIFYING_SSL_MODES = frozenset({"verify-ca", "verify-full"})
 
@@ -59,5 +60,8 @@ def migrations_database_url() -> str:
 
 def create_database_engine(postgres_url: str) -> AsyncEngine:
     return create_async_engine(
-        sqlalchemy_url(postgres_url), pool_pre_ping=True, connect_args=connect_args(postgres_url)
+        sqlalchemy_url(postgres_url),
+        pool_pre_ping=True,
+        pool_recycle=POOL_RECYCLE_SECONDS,
+        connect_args=connect_args(postgres_url),
     )
