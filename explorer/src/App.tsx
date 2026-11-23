@@ -243,9 +243,20 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
       )}
 
       <header className="topbar">
-        <h1 className="brand">
-          SoundShark <span>explorer</span>
-        </h1>
+        <div className="topbar-head">
+          <h1 className="brand">
+            SoundShark <span>explorer</span>
+          </h1>
+          <button
+            type="button"
+            className="mode-toggle"
+            data-testid="mode-toggle"
+            aria-label={mode === "3d" ? "Switch to the 2D map" : "Switch to the 3D map"}
+            onClick={switchMode}
+          >
+            {mode === "3d" ? "2D" : "3D"}
+          </button>
+        </div>
         <SearchBox
           explorer={explorer}
           colors={colors}
@@ -256,15 +267,6 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
           testId="search"
         />
         <CityToggle cities={explorer.cities} city={city} onChoose={chooseCity} />
-        <button
-          type="button"
-          className="mode-toggle"
-          data-testid="mode-toggle"
-          aria-label={mode === "3d" ? "Switch to the 2D map" : "Switch to the 3D map"}
-          onClick={switchMode}
-        >
-          {mode === "3d" ? "2D" : "3D"}
-        </button>
         {missing && (
           <p className="notice" role="status">
             That artist isn’t in this map.

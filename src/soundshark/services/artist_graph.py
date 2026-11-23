@@ -1,12 +1,13 @@
 import math
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import combinations
 
 import numpy as np
 from scipy import sparse
+from scipy.sparse import linalg
 
 from soundshark.models.graph_scoring import GraphScoring
 
@@ -117,18 +118,13 @@ def build_edges(credits: Iterable[CreditOnBill], scoring: GraphScoring, now: dat
 
 
 def top_related_by_pagerank(
-    edges: Sequence[ArtistEdge],
-    scoring: GraphScoring,
-    *,
-    sources_per_batch: int = 256,
-    tolerance: float = 1e-10,
-    max_iterations: int = 600,
+    edges: Sequence[ArtistEdge], scoring: GraphScoring, *, sources_per_batch: int = 512
 ) -> dict[int, list[tuple[int, float]]]:
     artist_ids = sorted({e.a_id for e in edges} | {e.b_id for e in edges})
     if not artist_ids:
         return {}
     index_of = {artist_id: index for index, artist_id in enumerate(artist_ids)}
-    walk_matrix = _transposed_walk_matrix(edges, index_of)
+    solve = _pagerank_solver(_transposed_walk_matrix(edges, index_of), scoring.pagerank_damping)
     artist_count = len(artist_ids)
     related: dict[int, list[tuple[int, float]]] = {}
 
@@ -136,7 +132,7 @@ def top_related_by_pagerank(
         sources = np.arange(batch_start, min(batch_start + sources_per_batch, artist_count))
         restart = np.zeros((artist_count, len(sources)))
         restart[sources, np.arange(len(sources))] = 1.0
-        scores = _power_iteration(walk_matrix, restart, scoring.pagerank_damping, tolerance, max_iterations)
+        scores = solve(restart)
         for column, source in enumerate(sources.tolist()):
             related[artist_ids[source]] = _best_others(
                 scores[:, column], source, artist_ids, scoring.related_per_artist
@@ -170,17 +166,11 @@ def _transposed_walk_matrix(edges: Sequence[ArtistEdge], index_of: dict[int, int
     return sparse.csr_array(step_probabilities.T)
 
 
-def _power_iteration(
-    walk_matrix: sparse.csr_array, restart: np.ndarray, damping: float, tolerance: float, max_iterations: int
-) -> np.ndarray:
-    scores = restart.copy()
-    for _ in range(max_iterations):
-        next_scores = damping * (walk_matrix @ scores) + (1 - damping) * restart
-        change = np.abs(next_scores - scores).sum(axis=0).max()
-        scores = next_scores
-        if change < tolerance:
-            break
-    return scores
+def _pagerank_solver(walk_matrix: sparse.csr_array, damping: float) -> Callable[[np.ndarray], np.ndarray]:
+    identity = sparse.identity(len(walk_matrix.indptr) - 1, format="csc")
+    system = sparse.csc_array(identity - damping * walk_matrix)
+    factors = linalg.splu(system, permc_spec="MMD_AT_PLUS_A", options={"SymmetricMode": True})
+    return lambda restart: (1 - damping) * factors.solve(restart)
 
 
 def _best_others(
