@@ -395,9 +395,23 @@ test.describe("3D view", () => {
   });
 
   test("shows the loader until the scene is laid out", async ({ page }) => {
+    await page.addInitScript(() => {
+      const seen = window as unknown as { loaderText?: string | null; loaderBeforeSettled?: boolean };
+      new MutationObserver(() => {
+        const loader = document.querySelector('[data-testid="scene-loading"]');
+        if (loader && seen.loaderText === undefined) {
+          seen.loaderText = loader.textContent;
+          seen.loaderBeforeSettled = document.documentElement.dataset.layout3d !== "settled";
+        }
+      }).observe(document, { childList: true, subtree: true });
+    });
     await page.goto("/");
-    await expect(page.getByTestId("scene-loading")).toHaveText("Loading the scene…");
     await expect(page.locator("html")).toHaveAttribute("data-layout3d", "settled", { timeout: 60_000 });
     await expect(page.getByTestId("scene-loading")).toHaveCount(0);
+    const seen = await page.evaluate(() => {
+      const w = window as unknown as { loaderText?: string | null; loaderBeforeSettled?: boolean };
+      return { text: w.loaderText, before: w.loaderBeforeSettled };
+    });
+    expect(seen).toEqual({ text: "Loading the scene…", before: true });
   });
 });
