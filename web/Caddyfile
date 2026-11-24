@@ -5,6 +5,7 @@
 }
 
 {$SITE_ADDRESS:http://} {
+	import /etc/caddy/site.d/*.caddy
 	encode zstd gzip
 
 	header {

@@ -13,6 +13,7 @@ The explorer is a static app, and the map file ([0025](0025-the-map-file.md)) is
 - **Routes:** `/map.json` is served from the map volume, using the gzip copy when the browser accepts it, with `Cache-Control: no-cache` so a new night's map shows up. `/assets/*` has hashed names and is cached for a year. Everything else comes from the built app with `no-cache`.
 - **Headers:** a strict Content Security Policy (only the site's own scripts, styles, workers and requests), `nosniff`, no referrer, no framing, and no `Server` header. The admin API is off.
 - **The address comes from `SITE_ADDRESS`.** Unset, Caddy serves plain HTTP on any host, which is the local setup; Compose binds it to `127.0.0.1` only. On the server it is the domain, and Caddy gets and renews the certificate itself.
+- **Server-only settings go in `/etc/caddy/site.d/*.caddy`,** imported into the site block. The folder is empty locally; on a server it holds settings that don't belong in the repo.
 
 ## Consequences
 
