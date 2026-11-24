@@ -332,6 +332,68 @@ test.describe("3D view", () => {
     await expect(page.getByTestId("map-3d")).toHaveCount(0);
   });
 
+  test("zooms in and out with the buttons in 3D and 2D", async ({ page }) => {
+    await page.goto("/");
+    await waitReady(page);
+    await expect(page.locator("html")).toHaveAttribute("data-layout3d", "settled", { timeout: 60_000 });
+    const shot = async (testId: string) => page.getByTestId(testId).screenshot({ animations: "disabled" });
+
+    for (const [testId, name] of [
+      ["map-3d", "3d"],
+      ["map", "2d"],
+    ] as const) {
+      if (name === "2d") {
+        await page.getByTestId("mode-toggle").click();
+        await expect(page.getByTestId("map")).toBeVisible();
+        await page.waitForTimeout(1500);
+      }
+      await expect(page.getByTestId("zoom-in")).toBeVisible();
+      const before = await shot(testId);
+      await page.getByTestId("zoom-in").click();
+      await page.waitForTimeout(800);
+      const closer = await shot(testId);
+      expect(closer.equals(before)).toBe(false);
+      await page.screenshot({ path: join(shotsDir, `desktop-${name}-zoomed-in.png`) });
+      await page.getByTestId("zoom-out").click();
+      await page.getByTestId("zoom-out").click();
+      await page.waitForTimeout(800);
+      expect((await shot(testId)).equals(closer)).toBe(false);
+    }
+  });
+
+  test("names nearby artists as you fly in, and none from afar", async ({ page }) => {
+    await page.goto("/");
+    await waitReady(page);
+    await expect(page.locator("html")).toHaveAttribute("data-layout3d", "settled", { timeout: 60_000 });
+    const labels = page.getByTestId("space-labels").locator(".space-label");
+    await page.waitForTimeout(500);
+    await expect(labels).toHaveCount(0);
+    for (let i = 0; i < 4; i += 1) {
+      await page.getByTestId("zoom-in").click();
+      await page.waitForTimeout(400);
+    }
+    await expect(labels.first()).toBeVisible();
+    await page.screenshot({ path: join(shotsDir, "desktop-3d-artist-labels.png") });
+  });
+
+  test("flies along a path in 3D and can be stopped", async ({ page }) => {
+    await page.goto(`/#a=${subject.id}&b=${far.id}`);
+    await waitReady(page);
+    await expect(page.locator("html")).toHaveAttribute("data-layout3d", "settled", { timeout: 60_000 });
+    const hops = distance(map, subject.id, far.id) as number;
+    await page.getByTestId("fly-path").click();
+    const card = page.getByTestId("flight-card");
+    await expect(card).toContainText(`1 / ${hops + 1}`);
+    await expect(card).toContainText(`Starting at ${subject.name}`);
+    await expect(card).toContainText(`2 / ${hops + 1}`, { timeout: 10_000 });
+    await expect(card).toContainText("→");
+    await page.waitForTimeout(1700);
+    await page.screenshot({ path: join(shotsDir, "desktop-3d-flight.png") });
+    await page.getByTestId("flight-stop").click();
+    await expect(card).toHaveCount(0);
+    await expect(page.getByTestId("panel")).toContainText(`${hops} steps apart`);
+  });
+
   test("shows the loader until the scene is laid out", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByTestId("scene-loading")).toHaveText("Loading the scene…");
