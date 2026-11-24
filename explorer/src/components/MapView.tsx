@@ -1,11 +1,12 @@
 import { Cosmograph, type CosmographProps } from "@cosmograph/react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DuckDBConnection } from "../cosmograph/duckdb";
 import type { GraphTables } from "../cosmograph/tables";
 import type { Explorer } from "../graph/prepare";
 import { boundsOf, closestStep, framingBox, insetsFrom } from "../graph/camera";
 import { mainIndices } from "../graph/graph";
 import { THEMES, pointSize, type Rgba, type Styling, type Theme } from "../graph/styling";
+import { ZoomButtons } from "./ZoomButtons";
 import { PathLabels } from "./PathLabels";
 
 type CosmographInstance = Parameters<NonNullable<CosmographProps["onMount"]>>[0];
@@ -34,6 +35,8 @@ interface Props {
 const HIDDEN: Rgba = [0, 0, 0, 0];
 const FOLLOW_EVERY_MS = 1500;
 const FOLLOW_DURATION_MS = 500;
+const ZOOM_FACTOR = 1.6;
+const ZOOM_MS = 250;
 
 const OVERLAYS = ".topbar, .legend, .panel, .footer";
 const LABEL_ROOM = 30;
@@ -237,9 +240,21 @@ function MapViewInner({
     if (ready) instance.current?.setFocusedPoint(focus ?? undefined);
   }, [focus, ready, settled]);
 
+  const zoom = useCallback((direction: 1 | -1) => {
+    const cosmograph = instance.current;
+    const level = cosmograph?.getZoomLevel();
+    if (!cosmograph || level === undefined) return;
+    cameraRef.current.userMoved = true;
+    cosmograph.setZoomLevel(
+      direction === 1 ? level * ZOOM_FACTOR : level / ZOOM_FACTOR,
+      cameraRef.current.reducedMotion ? 0 : ZOOM_MS,
+    );
+  }, []);
+
   return (
     <div className="map" data-testid="map" ref={container}>
       <Cosmograph className="map-canvas" {...config} />
+      {ready && <ZoomButtons onZoom={zoom} />}
       {path && ready && <PathLabels tracker={tracker} path={path} names={pathNames} everyMs={big ? 50 : 0} />}
     </div>
   );

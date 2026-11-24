@@ -182,6 +182,10 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
     [graph.ids, navigate, url.a, city],
   );
 
+  const [flightPath, setFlightPath] = useState<readonly number[] | null>(null);
+  const flight = mode === "3d" && path !== null && flightPath === path ? path : null;
+  const endFlight = useCallback(() => setFlightPath(null), []);
+
   const backToMap = useCallback(() => navigate({ a: null, b: null, city }), [navigate, city]);
   const chooseCity = useCallback(
     (next: string | null) => {
@@ -239,6 +243,8 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
           reducedMotion={reducedMotion}
           onPick={focusOn}
           onReady={onReady}
+          flight={flight}
+          onFlightEnd={endFlight}
         />
       )}
 
@@ -284,6 +290,7 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
           onFocus={focusOn}
           onConnect={connect}
           onClose={backToMap}
+          onFly={mode === "3d" && path !== null && path.length > 1 ? () => setFlightPath(path) : undefined}
         />
       )}
 

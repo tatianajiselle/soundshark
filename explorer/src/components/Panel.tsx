@@ -12,6 +12,7 @@ interface Props {
   onFocus: (index: number) => void;
   onConnect: (index: number | null) => void;
   onClose: () => void;
+  onFly?: () => void;
 }
 
 function ArtistButton({
@@ -30,7 +31,7 @@ function ArtistButton({
   );
 }
 
-export function Panel({ explorer, colors, focus, target, path, onFocus, onConnect, onClose }: Props) {
+export function Panel({ explorer, colors, focus, target, path, onFocus, onConnect, onClose, onFly }: Props) {
   const artist = explorer.map.artists[focus];
   const scene = artist.scene === null ? undefined : explorer.sceneById.get(artist.scene);
   const related = explorer.related[focus];
@@ -103,6 +104,11 @@ export function Panel({ explorer, colors, focus, target, path, onFocus, onConnec
                   ))}
                 </ol>
               </>
+            )}
+            {path !== null && path.length > 1 && onFly && (
+              <button type="button" className="fly-button" onClick={onFly} data-testid="fly-path">
+                Fly the path
+              </button>
             )}
             <button type="button" className="text-button" onClick={() => onConnect(null)}>
               Clear the path

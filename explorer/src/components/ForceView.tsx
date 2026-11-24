@@ -3,6 +3,10 @@ import { emphasisedEdges, layoutEdges, mainMask, placedMask, rgbaCss } from "../
 import type { Explorer } from "../graph/prepare";
 import { THEMES, pointSize, type Styling, type Theme } from "../graph/styling";
 import type { Camera } from "./MapView";
+import { ZoomButtons } from "./ZoomButtons";
+import { FlightCard } from "./FlightCard";
+import { flightShot, spread, type Vec3 } from "../graph/space";
+import { SpaceLabels, type Projector } from "./SpaceLabels";
 
 interface Props {
   explorer: Explorer;
@@ -12,6 +16,8 @@ interface Props {
   reducedMotion: boolean;
   onPick: (index: number) => void;
   onReady: () => void;
+  flight: readonly number[] | null;
+  onFlightEnd: () => void;
 }
 
 interface Node {
@@ -37,13 +43,30 @@ const FLY_MS = 1200;
 const FIT_MS = 900;
 const FLY_DISTANCE = 260;
 const LINK_OPACITY = 0.7;
+const ZOOM_STEP = 0.6;
+const ZOOM_MS = 300;
+const FLIGHT_DISTANCE = 230;
+const FLIGHT_MOVE_MS = 1600;
+const FLIGHT_HOLD_MS = 1800;
 
-export function ForceView({ explorer, styling, camera, theme, reducedMotion, onPick, onReady }: Props) {
+export function ForceView({
+  explorer,
+  styling,
+  camera,
+  theme,
+  reducedMotion,
+  onPick,
+  onReady,
+  flight,
+  onFlightEnd,
+}: Props) {
   const host = useRef<HTMLDivElement>(null);
   const graphRef = useRef<Instance | null>(null);
   const [settled, setSettled] = useState(false);
   const pickRef = useRef(onPick);
   const readyRef = useRef(onReady);
+  const flightEndRef = useRef(onFlightEnd);
+  const [flightStep, setFlightStep] = useState<{ path: readonly number[]; step: number } | null>(null);
   const stylingRef = useRef(styling);
   const t = THEMES[theme];
   const { graph } = explorer;
@@ -80,8 +103,9 @@ export function ForceView({ explorer, styling, camera, theme, reducedMotion, onP
   useEffect(() => {
     pickRef.current = onPick;
     readyRef.current = onReady;
+    flightEndRef.current = onFlightEnd;
     stylingRef.current = styling;
-  }, [onPick, onReady, styling]);
+  }, [onPick, onReady, onFlightEnd, styling]);
 
   const paint = useCallback(
     (instance: Instance) => {
@@ -165,7 +189,7 @@ export function ForceView({ explorer, styling, camera, theme, reducedMotion, onP
 
   useEffect(() => {
     const instance = graphRef.current;
-    if (!instance || !settled) return;
+    if (!instance || !settled || flight !== null) return;
     const controls = instance.controls() as { autoRotate: boolean; autoRotateSpeed: number };
     controls.autoRotate = camera.kind === "fit" && camera.indices === undefined && !reducedMotion;
     controls.autoRotateSpeed = 0.4;
@@ -182,11 +206,91 @@ export function ForceView({ explorer, styling, camera, theme, reducedMotion, onP
       const only = camera.indices === undefined ? null : new Set(camera.indices);
       instance.zoomToFit(ms, 40, (node: object) => only === null || only.has((node as Node).id));
     }
-  }, [camera, settled, reducedMotion, base.nodeAt]);
+  }, [camera, settled, reducedMotion, base.nodeAt, flight]);
+
+  useEffect(() => {
+    const instance = graphRef.current;
+    if (!instance || !settled || flight === null) return;
+    (instance.controls() as { autoRotate: boolean }).autoRotate = false;
+    const at = (index: number): Vec3 | null => {
+      const node = base.nodeAt.get(index);
+      return node && node.x !== undefined ? { x: node.x, y: node.y ?? 0, z: node.z ?? 0 } : null;
+    };
+    const move = reducedMotion ? 0 : FLIGHT_MOVE_MS;
+    let step = 0;
+    let timer = 0;
+    const go = () => {
+      if (step >= flight.length) {
+        setFlightStep(null);
+        flightEndRef.current();
+        return;
+      }
+      const here = at(flight[step]);
+      if (here !== null) {
+        const prev = step > 0 ? at(flight[step - 1]) : null;
+        const next = step + 1 < flight.length ? at(flight[step + 1]) : null;
+        instance.cameraPosition(flightShot(prev, here, next, FLIGHT_DISTANCE), here, move);
+      }
+      setFlightStep({ path: flight, step });
+      step += 1;
+      timer = window.setTimeout(go, move + FLIGHT_HOLD_MS);
+    };
+    timer = window.setTimeout(go, 0);
+    return () => {
+      window.clearTimeout(timer);
+      setFlightStep(null);
+    };
+  }, [flight, settled, reducedMotion, base.nodeAt]);
+
+  const projector = useCallback(() => graphRef.current as unknown as Projector | null, []);
+  const nameOf = useCallback((id: number) => explorer.map.artists[id]?.name ?? "", [explorer.map.artists]);
+  const weightOf = useCallback(
+    (id: number) => 1 + Math.log2(1 + (explorer.map.artists[id]?.nights ?? 0)),
+    [explorer.map.artists],
+  );
+  const emphasis = useCallback(() => stylingRef.current.emphasis, []);
+  const radius = useMemo(
+    () => spread(base.nodes.flatMap((n) => (n.x === undefined ? [] : [{ x: n.x, y: n.y ?? 0, z: n.z ?? 0 }]))),
+    [base.nodes],
+  );
+
+  const zoom = useCallback(
+    (direction: 1 | -1) => {
+      const instance = graphRef.current;
+      if (!instance) return;
+      const target = (instance.controls() as { target: { x: number; y: number; z: number } }).target;
+      const from = instance.cameraPosition();
+      const k = direction === 1 ? ZOOM_STEP : 1 / ZOOM_STEP;
+      instance.cameraPosition(
+        {
+          x: target.x + (from.x - target.x) * k,
+          y: target.y + (from.y - target.y) * k,
+          z: target.z + (from.z - target.z) * k,
+        },
+        { x: target.x, y: target.y, z: target.z },
+        reducedMotion ? 0 : ZOOM_MS,
+      );
+    },
+    [reducedMotion],
+  );
 
   return (
     <>
       <div className="map map-3d" data-testid="map-3d" ref={host} />
+      {settled && (
+        <SpaceLabels
+          projector={projector}
+          points={base.nodes}
+          nameOf={nameOf}
+          weightOf={weightOf}
+          emphasis={emphasis}
+          radius={radius}
+        />
+      )}
+      {settled && <ZoomButtons onZoom={zoom} />}
+      {flightStep !== null && flight === flightStep.path && (
+        <FlightCard explorer={explorer} path={flightStep.path} step={flightStep.step} onStop={onFlightEnd} />
+      )}
       {!settled && (
         <div className="scene-loading" role="status" data-testid="scene-loading">
           Loading the scene…
