@@ -1,4 +1,5 @@
-import { useId, useMemo, useRef, useState, type KeyboardEvent, type Ref } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type Ref } from "react";
+import { clip, track } from "../analytics";
 import type { Explorer } from "../graph/prepare";
 import { search } from "../graph/search";
 import { formatNights } from "../graph/text";
@@ -41,8 +42,22 @@ export function SearchBox({
     [explorer.search, query, exclude],
   );
   const showList = open && query.trim() !== "";
+  const missing = query.trim().length >= 2 && hits.length === 0;
+
+  useEffect(() => {
+    if (!missing) return;
+    const wait = window.setTimeout(() => track("search-miss", { box: testId, query: clip(query, 60) }), 1200);
+    return () => window.clearTimeout(wait);
+  }, [missing, query, testId]);
 
   const choose = (index: number) => {
+    const rank = hits.findIndex((hit) => hit.index === index);
+    track("search-pick", {
+      box: testId,
+      query: clip(query, 60),
+      name: explorer.map.artists[index].name,
+      rank: rank + 1,
+    });
     setQuery("");
     setOpen(false);
     setActive(0);

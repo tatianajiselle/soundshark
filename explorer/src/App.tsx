@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { clip, track, type EventData } from "./analytics";
 import { About, Footer } from "./components/About";
 import { CityToggle } from "./components/CityToggle";
 import { Legend } from "./components/Legend";
@@ -82,12 +83,12 @@ export function App() {
     let alive = true;
     loadExplorer().then(
       (loaded) => alive && setState({ status: "ready", loaded }),
-      (error: unknown) =>
-        alive &&
-        setState({
-          status: "error",
-          error: error instanceof LoadError ? error : new LoadError("Something went wrong.", String(error)),
-        }),
+      (error: unknown) => {
+        if (!alive) return;
+        const loadError = error instanceof LoadError ? error : new LoadError("Something went wrong.", String(error));
+        track("load-error", { message: clip(loadError.message), detail: clip(loadError.detail ?? "", 200) });
+        setState({ status: "error", error: loadError });
+      },
     );
     return () => {
       alive = false;
@@ -101,7 +102,8 @@ export function App() {
 
   const onReady = useCallback(() => {
     performance.mark("explorer:rendered");
-    performance.measure("explorer:first-render", "explorer:start", "explorer:rendered");
+    const measure = performance.measure("explorer:first-render", "explorer:start", "explorer:rendered");
+    track("rendered", { ms: Math.round(measure.duration), view: savedMode() });
     setRendered(true);
   }, []);
 
@@ -137,13 +139,27 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
   const [highlight, setHighlight] = useState<number | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(() => url.a === null && !welcomedBefore());
+  const welcomeSince = useRef(0);
+  useEffect(() => {
+    if (welcomeOpen) welcomeSince.current = performance.now();
+  }, [welcomeOpen]);
   const closeWelcome = useCallback(() => {
     rememberWelcomed();
+    if (welcomeOpen) track("welcome-close", { seconds: Math.round((performance.now() - welcomeSince.current) / 1000) });
     setWelcomeOpen(false);
+  }, [welcomeOpen]);
+  const openWelcome = useCallback(() => {
+    track("welcome-open");
+    setWelcomeOpen(true);
+  }, []);
+  const openAbout = useCallback(() => {
+    track("about-open");
+    setAboutOpen(true);
   }, []);
   const [mode, setMode] = useState<Mode>(savedMode);
   const switchMode = useCallback(() => {
     const next = mode === "2d" ? "3d" : "2d";
+    track("view", { mode: next });
     saveMode(next);
     setMode(next);
   }, [mode]);
@@ -190,28 +206,68 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
   }, [focus, path, cityArea]);
 
   const focusOn = useCallback(
-    (index: number) => {
+    (index: number, from = "map", extra?: EventData) => {
+      track("artist", { name: map.artists[index].name, from, ...extra });
       setHighlight(null);
       navigate({ a: graph.ids[index], b: null, city });
     },
-    [graph.ids, navigate, city],
+    [graph.ids, map.artists, navigate, city],
   );
+  const chooseFromSearch = useCallback((index: number) => focusOn(index, "search"), [focusOn]);
 
   const connect = useCallback(
     (index: number | null) => {
       if (url.a === null) return;
+      if (index === null && focus !== null) track("clear-path", { name: map.artists[focus].name });
       navigate({ a: url.a, b: index === null ? null : graph.ids[index], city });
     },
-    [graph.ids, navigate, url.a, city],
+    [graph.ids, map.artists, navigate, url.a, focus, city],
+  );
+
+  useEffect(() => {
+    if (focus === null || target === null) return;
+    track("path", {
+      from: map.artists[focus].name,
+      to: map.artists[target].name,
+      steps: path === null ? "none" : path.length - 1,
+    });
+  }, [focus, target, path, map.artists]);
+
+  useEffect(() => {
+    if (missing) track("missing-artist", { id: clip(String(url.a ?? ""), 40) });
+  }, [missing, url.a]);
+
+  const setupTracked = useRef(false);
+  useEffect(() => {
+    if (setupTracked.current) return;
+    setupTracked.current = true;
+    track("setup", { theme, view: mode, reducedMotion, deepLink: url.a !== null, city: city ?? "All" });
+  }, [theme, mode, reducedMotion, url.a, city]);
+
+  const highlightScene = useCallback(
+    (scene: number | null) => {
+      const label = scene === null ? "none" : (explorer.sceneById.get(scene)?.label ?? String(scene));
+      track("scene", { name: label });
+      setHighlight(scene);
+    },
+    [explorer.sceneById],
   );
 
   const [flightPath, setFlightPath] = useState<readonly number[] | null>(null);
   const flight = mode === "3d" && path !== null && flightPath === path ? path : null;
   const endFlight = useCallback(() => setFlightPath(null), []);
 
-  const backToMap = useCallback(() => navigate({ a: null, b: null, city }), [navigate, city]);
+  const backToMap = useCallback(
+    (via = "button") => {
+      if (focus !== null) track("close-artist", { name: map.artists[focus].name, via });
+      navigate({ a: null, b: null, city });
+    },
+    [navigate, city, focus, map.artists],
+  );
+  const closePanel = useCallback(() => backToMap("button"), [backToMap]);
   const chooseCity = useCallback(
     (next: string | null) => {
+      track("city", { name: next ?? "All" });
       setHighlight(null);
       navigate({ a: null, b: null, city: next });
     },
@@ -223,10 +279,11 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
       if (event.defaultPrevented || aboutOpen || welcomeOpen) return;
       const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
       if (event.key === "Escape") {
-        if (focus !== null || url.a !== null) backToMap();
+        if (focus !== null || url.a !== null) backToMap("escape");
         else if (highlight !== null) setHighlight(null);
       } else if (event.key === "/" && !typing) {
         event.preventDefault();
+        track("shortcut", { key: "/" });
         searchInput.current?.focus();
       }
     };
@@ -291,7 +348,7 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
           colors={colors}
           label="Search artists"
           placeholder={`Search ${map.artists.length.toLocaleString("en-GB")} artists`}
-          onChoose={focusOn}
+          onChoose={chooseFromSearch}
           inputRef={searchInput}
           testId="search"
         />
@@ -312,8 +369,19 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
           path={path}
           onFocus={focusOn}
           onConnect={connect}
-          onClose={backToMap}
-          onFly={mode === "3d" && path !== null && path.length > 1 ? () => setFlightPath(path) : undefined}
+          onClose={closePanel}
+          onFly={
+            mode === "3d" && path !== null && path.length > 1 && target !== null
+              ? () => {
+                  track("fly", {
+                    from: map.artists[focus].name,
+                    to: map.artists[target].name,
+                    steps: path.length - 1,
+                  });
+                  setFlightPath(path);
+                }
+              : undefined
+          }
         />
       )}
 
@@ -323,15 +391,10 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
         theme={theme}
         mode={view.kind}
         highlight={highlight}
-        onHighlight={setHighlight}
+        onHighlight={highlightScene}
       />
 
-      <Footer
-        credits={map.credits}
-        generatedAt={map.generatedAt}
-        onAbout={() => setAboutOpen(true)}
-        onWelcome={() => setWelcomeOpen(true)}
-      />
+      <Footer credits={map.credits} generatedAt={map.generatedAt} onAbout={openAbout} onWelcome={openWelcome} />
       <Welcome open={welcomeOpen} onClose={closeWelcome} artists={map.artists.length} />
       <About
         open={aboutOpen}

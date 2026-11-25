@@ -7,6 +7,7 @@
     <meta name="description" content="A map of DJs who play together, derived from public lineups." />
     <link rel="icon" href="data:," />
     <title>SoundShark explorer</title>
+    <script defer src="/analytics.js"></script>
   </head>
   <body>
     <div id="root"></div>

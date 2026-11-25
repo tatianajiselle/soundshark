@@ -1,3 +1,4 @@
+import { track } from "../analytics";
 import type { Explorer } from "../graph/prepare";
 import { hopFacts } from "../graph/space";
 
@@ -37,7 +38,15 @@ export function FlightCard({ explorer, path, step, onStop }: Props) {
         <span className="flight-step">
           {step + 1} / {path.length}
         </span>
-        <button type="button" className="text-button" onClick={onStop} data-testid="flight-stop">
+        <button
+          type="button"
+          className="text-button"
+          onClick={() => {
+            track("fly-stop", { step: step + 1, of: path.length });
+            onStop();
+          }}
+          data-testid="flight-stop"
+        >
           Stop
         </button>
       </div>

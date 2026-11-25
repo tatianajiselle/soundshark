@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { track, type EventData } from "../analytics";
 import { relatedAtDegree, type DegreeEntry } from "../graph/degrees";
 import type { Explorer } from "../graph/prepare";
 import { formatNights } from "../graph/text";
@@ -11,7 +12,7 @@ interface Props {
   focus: number;
   target: number | null;
   path: readonly number[] | null;
-  onFocus: (index: number) => void;
+  onFocus: (index: number, from?: string, extra?: EventData) => void;
   onConnect: (index: number | null) => void;
   onClose: () => void;
   onFly?: () => void;
@@ -24,10 +25,10 @@ function ArtistButton({
 }: {
   explorer: Explorer;
   index: number;
-  onFocus: (i: number) => void;
+  onFocus: (i: number, from?: string) => void;
 }) {
   return (
-    <button type="button" className="link-button" onClick={() => onFocus(index)}>
+    <button type="button" className="link-button" onClick={() => onFocus(index, "path")}>
       {explorer.map.artists[index].name}
     </button>
   );
@@ -145,7 +146,10 @@ export function Panel({ explorer, colors, focus, target, path, onFocus, onConnec
                 type="button"
                 aria-pressed={degree === d.value}
                 aria-label={`${d.words} away`}
-                onClick={() => setDegree(d.value)}
+                onClick={() => {
+                  track("degree", { value: d.value, name: artist.name });
+                  setDegree(d.value);
+                }}
                 data-testid={`degree-${d.value}`}
               >
                 {d.label}
@@ -171,7 +175,11 @@ export function Panel({ explorer, colors, focus, target, path, onFocus, onConnec
               return (
                 <li key={entry.index}>
                   <span className="related-rank">{rank + 1}</span>
-                  <button type="button" className="related-button" onClick={() => onFocus(entry.index)}>
+                  <button
+                    type="button"
+                    className="related-button"
+                    onClick={() => onFocus(entry.index, "related", { degree, rank: rank + 1 })}
+                  >
                     <Swatch color={other.scene === null ? undefined : colors.get(other.scene)} />
                     <span className="related-name">
                       <span className="related-label">{other.name}</span>
