@@ -14,18 +14,16 @@ class Page:
     content_type: str | None = None
     encoding: str = "utf-8"
     crawl_run_id: str | None = None
+    content_sha256: str = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.fetched_at.tzinfo is None:
             raise ValueError("Page.fetched_at must be timezone-aware")
+        object.__setattr__(self, "content_sha256", hashlib.sha256(self.body).hexdigest())
 
     @property
     def text(self) -> str:
         return self.body.decode(self.encoding, errors="replace")
-
-    @property
-    def content_sha256(self) -> str:
-        return hashlib.sha256(self.body).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,3 +1,5 @@
+import hashlib
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -39,6 +41,23 @@ def test_each_crawl_run_gets_its_own_id():
 def test_page_content_hash_identifies_the_body():
     page = Page(url="https://x.test/", status=200, body=b"abc", fetched_at=datetime.now(UTC))
     assert page.content_sha256 == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+
+
+def test_page_hashes_its_body_once(monkeypatch):
+    calls = []
+    real = hashlib.sha256
+    monkeypatch.setattr(hashlib, "sha256", lambda data: calls.append(data) or real(data))
+    page = Page(url="https://x.test/", status=200, body=b"abc", fetched_at=datetime(2026, 1, 1, tzinfo=UTC))
+    for _ in range(3):
+        assert page.content_sha256 == real(b"abc").hexdigest()
+    assert len(calls) == 1
+
+
+def test_page_hash_follows_the_body_through_replace():
+    page = Page(url="https://x.test/", status=200, body=b"abc", fetched_at=datetime(2026, 1, 1, tzinfo=UTC))
+    assert replace(page, body=b"xyz").content_sha256 == hashlib.sha256(b"xyz").hexdigest()
+    assert replace(page, body=b"xyz") != page
+    assert replace(page, url="https://x.test/") == page
 
 
 @pytest.mark.parametrize("bad_code", ["de", "DEU", "D1"])
