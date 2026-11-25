@@ -35,6 +35,33 @@ async function nonBackgroundShare(page: Page): Promise<number> {
   }, png.toString("base64"));
 }
 
+test.describe("first visit", () => {
+  test.use({ welcomed: false });
+
+  test("welcomes new visitors once, and can be reopened from the footer", async ({ page }) => {
+    await page.goto("/");
+    const welcome = page.getByTestId("welcome");
+    await expect(welcome).toBeVisible();
+    await expect(welcome).toContainText(`${map.artists.length.toLocaleString("en-GB")} DJs`);
+    await expect(welcome).toContainText("needs a GPU");
+    await page.getByTestId("welcome-start").click();
+    await expect(welcome).toBeHidden();
+    await page.reload();
+    await waitReady(page);
+    await expect(welcome).toBeHidden();
+    await page.getByTestId("open-welcome").click();
+    await expect(welcome).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(welcome).toBeHidden();
+  });
+
+  test("skips the welcome when a link opens an artist", async ({ page }) => {
+    await page.goto(`/#a=${subject.id}`);
+    await waitReady(page);
+    await expect(page.getByTestId("welcome")).toBeHidden();
+  });
+});
+
 test.describe("whole map", () => {
   test("loads, draws the graph and lists the scenes", async ({ page }) => {
     await page.goto("/");
@@ -161,6 +188,32 @@ test.describe("search and focus", () => {
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
     await expect(page).toHaveURL(/\/$/);
+  });
+
+  test("the related list can show artists two and three steps out", async ({ page }) => {
+    await page.goto(`/#a=${subject.id}`);
+    await waitReady(page);
+    const direct = new Set(relatedOf(map, subject.id));
+    const names = page.getByTestId("related").locator(".related-name");
+    await expect(page.getByTestId("degree-1")).toHaveAttribute("aria-pressed", "true");
+
+    await page.getByTestId("degree-2").click();
+    await expect(page.getByTestId("degree-2")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("related-count")).toContainText("two steps away");
+    await expect(names).toHaveCount(10);
+    for (const text of await names.locator(".related-label").allTextContents()) {
+      expect(direct.has(text)).toBe(false);
+    }
+    const firstVia = (await page.getByTestId("related").locator(".related-via").first().textContent()) ?? "";
+    expect(direct.has(firstVia.replace(/^\s*via\s+/, ""))).toBe(true);
+    await page.screenshot({ path: join(shotsDir, "desktop-second-degree.png") });
+
+    await page.getByTestId("degree-3").click();
+    await expect(page.getByTestId("related-count")).toContainText("three steps away");
+    await expect(names.first()).toBeVisible();
+
+    await page.getByTestId("degree-1").click();
+    await expect(page.getByTestId("related-count")).toHaveCount(0);
   });
 
   test("clicking a point on the map focuses that artist", async ({ page }) => {

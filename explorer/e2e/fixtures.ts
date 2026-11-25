@@ -73,12 +73,21 @@ interface Guards {
   pageErrors: string[];
 }
 
-export const test = base.extend<{ guards: Guards; view: "2d" | "3d" | null; viewSetup: void }>({
+export const test = base.extend<{
+  guards: Guards;
+  view: "2d" | "3d" | null;
+  welcomed: boolean;
+  viewSetup: void;
+}>({
   view: ["2d", { option: true }],
+  welcomed: [true, { option: true }],
   viewSetup: [
-    async ({ page, view }, use) => {
+    async ({ page, view, welcomed }, use) => {
       if (view !== null) {
         await page.addInitScript((mode) => window.localStorage.setItem("soundshark:view", mode), view);
+      }
+      if (welcomed) {
+        await page.addInitScript(() => window.localStorage.setItem("soundshark:welcomed", "1"));
       }
       await use();
     },

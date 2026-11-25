@@ -30,9 +30,10 @@ interface FooterProps {
   credits: readonly Credit[];
   generatedAt: string;
   onAbout: () => void;
+  onWelcome: () => void;
 }
 
-export function Footer({ credits, generatedAt, onAbout }: FooterProps) {
+export function Footer({ credits, generatedAt, onAbout, onWelcome }: FooterProps) {
   return (
     <footer className="footer" data-testid="footer">
       <span>Connections are derived from public lineups.</span>
@@ -42,6 +43,9 @@ export function Footer({ credits, generatedAt, onAbout }: FooterProps) {
         </span>
       )}
       <span className="footer-generated">Map from {formatGenerated(generatedAt)}.</span>
+      <button type="button" className="text-button" onClick={onWelcome} data-testid="open-welcome">
+        How to explore
+      </button>
       <button type="button" className="text-button" onClick={onAbout}>
         About
       </button>
@@ -55,7 +59,7 @@ interface AboutProps extends FooterProps {
   artists: number;
 }
 
-export function About({ open, onClose, credits, generatedAt, artists }: Omit<AboutProps, "onAbout">) {
+export function About({ open, onClose, credits, generatedAt, artists }: Omit<AboutProps, "onAbout" | "onWelcome">) {
   const dialog = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {

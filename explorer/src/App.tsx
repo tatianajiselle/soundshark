@@ -4,6 +4,7 @@ import { CityToggle } from "./components/CityToggle";
 import { Legend } from "./components/Legend";
 import { MapView, type Camera } from "./components/MapView";
 import { Panel } from "./components/Panel";
+import { Welcome } from "./components/Welcome";
 import { SearchBox } from "./components/SearchBox";
 import { ForceView } from "./components/ForceView";
 import { loadExplorer, type Loaded, LoadError } from "./load";
@@ -14,6 +15,23 @@ import { formatHash, parseHash, type UrlState } from "./graph/urlState";
 import { useMediaQuery } from "./useMediaQuery";
 
 const VIEW_KEY = "soundshark:view";
+const WELCOMED_KEY = "soundshark:welcomed";
+
+function welcomedBefore(): boolean {
+  try {
+    return window.localStorage.getItem(WELCOMED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function rememberWelcomed(): void {
+  try {
+    window.localStorage.setItem(WELCOMED_KEY, "1");
+  } catch {
+    return;
+  }
+}
 type Mode = "2d" | "3d";
 
 function savedMode(): Mode {
@@ -118,6 +136,11 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
   const [url, navigate] = useUrlState();
   const [highlight, setHighlight] = useState<number | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [welcomeOpen, setWelcomeOpen] = useState(() => url.a === null && !welcomedBefore());
+  const closeWelcome = useCallback(() => {
+    rememberWelcomed();
+    setWelcomeOpen(false);
+  }, []);
   const [mode, setMode] = useState<Mode>(savedMode);
   const switchMode = useCallback(() => {
     const next = mode === "2d" ? "3d" : "2d";
@@ -197,7 +220,7 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || aboutOpen) return;
+      if (event.defaultPrevented || aboutOpen || welcomeOpen) return;
       const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
       if (event.key === "Escape") {
         if (focus !== null || url.a !== null) backToMap();
@@ -209,7 +232,7 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [aboutOpen, backToMap, focus, highlight, url.a]);
+  }, [aboutOpen, welcomeOpen, backToMap, focus, highlight, url.a]);
 
   useEffect(() => {
     const parts = [focus === null ? null : map.artists[focus].name, "SoundShark explorer"];
@@ -303,7 +326,13 @@ function Ready({ loaded, onReady }: { loaded: Loaded; onReady: () => void }) {
         onHighlight={setHighlight}
       />
 
-      <Footer credits={map.credits} generatedAt={map.generatedAt} onAbout={() => setAboutOpen(true)} />
+      <Footer
+        credits={map.credits}
+        generatedAt={map.generatedAt}
+        onAbout={() => setAboutOpen(true)}
+        onWelcome={() => setWelcomeOpen(true)}
+      />
+      <Welcome open={welcomeOpen} onClose={closeWelcome} artists={map.artists.length} />
       <About
         open={aboutOpen}
         onClose={() => setAboutOpen(false)}
