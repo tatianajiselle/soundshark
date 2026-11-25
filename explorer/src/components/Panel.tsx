@@ -1,3 +1,5 @@
+import { useMemo, useState } from "react";
+import { relatedAtDegree, type DegreeEntry } from "../graph/degrees";
 import type { Explorer } from "../graph/prepare";
 import { formatNights } from "../graph/text";
 import { SearchBox } from "./SearchBox";
@@ -31,11 +33,27 @@ function ArtistButton({
   );
 }
 
+type Degree = 1 | 2 | 3;
+const DEGREES: { value: Degree; label: string; words: string }[] = [
+  { value: 1, label: "1st", words: "one step" },
+  { value: 2, label: "2nd", words: "two steps" },
+  { value: 3, label: "3rd", words: "three steps" },
+];
+const LIST_SIZE = 10;
+
 export function Panel({ explorer, colors, focus, target, path, onFocus, onConnect, onClose, onFly }: Props) {
   const artist = explorer.map.artists[focus];
   const scene = artist.scene === null ? undefined : explorer.sceneById.get(artist.scene);
-  const related = explorer.related[focus];
-  const top = related[0]?.score ?? 0;
+  const [degree, setDegree] = useState<Degree>(1);
+  const list = useMemo<{ entries: DegreeEntry[]; total: number }>(() => {
+    if (degree === 1) {
+      const direct = explorer.related[focus];
+      return { entries: direct.map((e) => ({ index: e.index, score: e.score, via: null })), total: direct.length };
+    }
+    return relatedAtDegree(explorer.related, focus, degree, LIST_SIZE);
+  }, [explorer.related, focus, degree]);
+  const top = list.entries[0]?.score ?? 0;
+  const words = DEGREES[degree - 1].words;
 
   return (
     <aside className="panel" aria-label={`About ${artist.name}`} data-testid="panel">
@@ -118,19 +136,49 @@ export function Panel({ explorer, colors, focus, target, path, onFocus, onConnec
       </section>
 
       <section className="panel-section" aria-label="Most related">
-        <h3>Most related</h3>
-        {related.length === 0 ? (
-          <p className="muted">No related artists in this map.</p>
+        <div className="related-head">
+          <h3>Most related</h3>
+          <div className="degree-filter" role="group" aria-label="How far out">
+            {DEGREES.map((d) => (
+              <button
+                key={d.value}
+                type="button"
+                aria-pressed={degree === d.value}
+                aria-label={`${d.words} away`}
+                onClick={() => setDegree(d.value)}
+                data-testid={`degree-${d.value}`}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {degree > 1 && list.total > 0 && (
+          <p className="muted related-count" data-testid="related-count">
+            {list.total > LIST_SIZE
+              ? `Top ${LIST_SIZE} of ${list.total.toLocaleString("en-GB")} artists ${words} away`
+              : `${list.total} ${list.total === 1 ? "artist" : "artists"} ${words} away`}
+          </p>
+        )}
+        {list.entries.length === 0 ? (
+          <p className="muted">
+            {degree === 1 ? "No related artists in this map." : `No artists ${words} away in this map.`}
+          </p>
         ) : (
           <ol className="related" data-testid="related">
-            {related.map((entry, rank) => {
+            {list.entries.map((entry, rank) => {
               const other = explorer.map.artists[entry.index];
               return (
                 <li key={entry.index}>
                   <span className="related-rank">{rank + 1}</span>
                   <button type="button" className="related-button" onClick={() => onFocus(entry.index)}>
                     <Swatch color={other.scene === null ? undefined : colors.get(other.scene)} />
-                    <span className="related-name">{other.name}</span>
+                    <span className="related-name">
+                      <span className="related-label">{other.name}</span>
+                      {entry.via !== null && (
+                        <span className="related-via"> via {explorer.map.artists[entry.via].name}</span>
+                      )}
+                    </span>
                     <span className="related-bar" aria-hidden="true">
                       <span style={{ width: `${top > 0 ? Math.max(4, (entry.score / top) * 100) : 0}%` }} />
                     </span>
